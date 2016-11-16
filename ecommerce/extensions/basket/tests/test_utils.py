@@ -3,7 +3,8 @@ import json
 import mock
 
 import ddt
-from django.test import RequestFactory
+from django.db import transaction
+from django.test import RequestFactory, TransactionTestCase
 from oscar.core.loading import get_model
 from oscar.test.factories import BasketFactory, ProductFactory, RangeFactory, VoucherFactory
 import pytz
@@ -13,6 +14,7 @@ from ecommerce.core.tests import toggle_switch
 from ecommerce.courses.tests.factories import CourseFactory
 from ecommerce.extensions.basket.utils import prepare_basket, attribute_cookie_data
 from ecommerce.extensions.catalogue.tests.mixins import CourseCatalogTestMixin
+from ecommerce.tests.mixins import UserMixin
 from ecommerce.extensions.partner.models import StockRecord
 from ecommerce.extensions.test.factories import prepare_voucher
 from ecommerce.referrals.models import Referral
@@ -273,3 +275,56 @@ class BasketUtilsTests(CourseCatalogTestMixin, TestCase):
         # test referral record is deleted when no cookies are set
         with self.assertRaises(Referral.DoesNotExist):
             Referral.objects.get(basket_id=basket.id)
+
+
+class BasketUtilsTranactionTests(UserMixin, TransactionTestCase):
+    def setUp(self):
+        super(BasketUtilsTranactionTests, self).setUp()
+        self.request = RequestFactory()
+        self.request.COOKIES = {}
+        self.request.user = self.create_user()
+        site_configuration = SiteConfigurationFactory(partner__name='Tester')
+        site_configuration.utm_cookie_name = 'test.edx.utm'
+        self.request.site = site_configuration.site
+
+    def _setup_request_cookie(self):
+        utm_campaign = 'test-campaign'
+        utm_content = 'test-content'
+        utm_created_at = 1475590280823
+
+        utm_cookie = {
+            'utm_campaign': utm_campaign,
+            'utm_content': utm_content,
+            'created_at': utm_created_at,
+        }
+
+        affiliate_id = 'affiliate'
+
+        self.request.COOKIES['test.edx.utm'] = json.dumps(utm_cookie)
+        self.request.COOKIES['affiliate_id'] = affiliate_id
+
+    def test_attribution_atomic_transation(self):
+        """
+            Verify db error raised from attributing cookie to basket
+            do not prevent the basket being created
+        """
+        self._setup_request_cookie()
+        product = ProductFactory()
+        existing_basket = Basket.get_basket(self.request.user, self.request.site)
+        existing_referral = Referral(basket=existing_basket, site=self.request.site)
+        # Let's save an existing referral object to force the duplication happen in database
+        existing_referral.save()
+
+        with transaction.atomic():
+            with mock.patch('ecommerce.extensions.basket.utils._referral_from_basket_site') as mock_get_referral:
+                # Mock to return a duplicated referral object, so when saved, a DB integrity error is raised
+                mock_get_referral.return_value = Referral(basket=existing_basket, site=self.request.site)
+                basket = prepare_basket(self.request, product)
+                referral = Referral.objects.filter(basket=basket)
+
+        self.assertEqual(len(referral), 1)
+        self.assertIsNotNone(basket)
+        self.assertTrue(basket.id > 0)
+        self.assertEqual(basket.status, Basket.OPEN)
+        self.assertEqual(basket.lines.count(), 1)
+        self.assertEqual(basket.lines.first().product, product)
