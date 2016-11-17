@@ -328,3 +328,12 @@ class BasketUtilsTranactionTests(UserMixin, TransactionTestCase):
         self.assertEqual(basket.status, Basket.OPEN)
         self.assertEqual(basket.lines.count(), 1)
         self.assertEqual(basket.lines.first().product, product)
+
+        # expire cookie
+        del self.request.COOKIES['test.edx.utm']
+        del self.request.COOKIES['affiliate_id']
+        attribute_cookie_data(basket, self.request)
+
+        # test referral record is deleted when no cookie set
+        with self.assertRaises(Referral.DoesNotExist):
+            Referral.objects.get(basket_id=basket.id)
