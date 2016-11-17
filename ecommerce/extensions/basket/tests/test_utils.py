@@ -334,6 +334,21 @@ class BasketUtilsTranactionTests(UserMixin, TransactionTestCase):
         del self.request.COOKIES['affiliate_id']
         attribute_cookie_data(basket, self.request)
 
-        # test referral record is deleted when no cookie set
-        with self.assertRaises(Referral.DoesNotExist):
-            Referral.objects.get(basket_id=basket.id)
+    def test_attribution_atomic_transaction_on_delete(self):
+        product = ProductFactory()
+        existing_basket = Basket.get_basket(self.request.user, self.request.site)
+        existing_referral = Referral(basket=existing_basket, site=self.request.site)
+        # Let's save an existing referral object to force the duplication happen in database
+        existing_referral.pk = 3
+        with transaction.atomic():
+            with mock.patch('ecommerce.extensions.basket.utils._referral_from_basket_site') as mock_get_referral:
+                mock_get_referral.return_value = existing_referral
+                basket = prepare_basket(self.request, product)
+                referral = Referral.objects.filter(basket=basket)
+
+        self.assertEqual(len(referral), 0)
+        self.assertIsNotNone(basket)
+        self.assertTrue(basket.id > 0)
+        self.assertEqual(basket.status, Basket.OPEN)
+        self.assertEqual(basket.lines.count(), 1)
+        self.assertEqual(basket.lines.first().product, product)
