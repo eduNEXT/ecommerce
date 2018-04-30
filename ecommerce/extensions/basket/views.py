@@ -166,6 +166,14 @@ class BasketSummaryView(BasketView):
         Returns:
             Dictionary containing course name, course key, course image URL and description.
         """
+
+        logger.warning(u'_get_course_data YEAAAAAAH--> [%s]',product)
+        try:
+            logger.info(product.title)
+        except Exception as e:
+            logger.info('se cag$$$%&')
+            logger.info(e)
+
         course_key = CourseKey.from_string(product.attr.course_key)
         course_name = None
         image_url = None
@@ -173,8 +181,15 @@ class BasketSummaryView(BasketView):
         course_start = None
         course_end = None
 
+
+
         try:
+            logging.info('ENTRAMOS :D--')
+
             course = get_course_info_from_catalog(self.request.site, course_key)
+            logging.info('---->course<--------')
+            logging.info(course.__dict__)
+
             try:
                 image_url = course['image']['src']
             except (KeyError, TypeError):
@@ -190,9 +205,11 @@ class BasketSummaryView(BasketView):
             course_end = self._deserialize_date(course.get('end'))
         except (ConnectionError, SlumberBaseException, Timeout):
             logger.exception('Failed to retrieve data from Catalog Service for course [%s].', course_key)
+        except Exception as e:
+            logging.info(str(e))
 
         return {
-            'product_title': course_name,
+            'product_title': product.title,
             'course_key': course_key,
             'image_url': image_url,
             'product_description': short_description,
@@ -334,6 +351,40 @@ class BasketSummaryView(BasketView):
         lines = context.get('line_list', [])
         site_configuration = self.request.site.siteconfiguration
 
+        # codigo loco de sebas
+        try:
+            for line in lines:  
+                product_class_name = line.product.get_product_class().name
+                logging.info('SEA VIENEEE product_class_name')
+                logging.info(product_class_name)
+
+                if product_class_name == 'Seat':
+                    line_data = self._get_course_data(line.product)
+                    logger.warning(u'line--> [%s] ',line)   
+                    logger.warning(u'line_data--> [%s] | [%s] | [%s]',line_data,line_data['product_title'],line_data['image_url'])                
+                    #product_title = line_data['product_title']
+                    #image_url = line_data.image_url
+                    if (getattr(line.product.attr, 'id_verification_required', False) and
+                            line.product.attr.certificate_type != 'credit'):
+                        display_verification_message = True
+                elif product_class_name == 'Enrollment Code':
+                    line_data = self._get_course_data(line.product)
+                    show_voucher_form = False
+                else:
+                    line_data = {
+                        'product_title': line.product.title,
+                        'image_url': None,
+                        'product_description': line.product.description
+                    }
+                logging.info(line_data['product_title'])
+                logging.info(line_data['product_description'])
+                logging.info(line_data)
+
+        except Exception as e:
+            logging.info('se cag##$%')
+            logging.info(e)
+
+
         failed_enterprise_consent_code = self.request.GET.get(CONSENT_FAILED_PARAM)
         if failed_enterprise_consent_code:
             messages.error(
@@ -381,6 +432,8 @@ class BasketSummaryView(BasketView):
             'payment_processors': payment_processors,
             'total_benefit': total_benefit
         })
+
+
         return context
 
 

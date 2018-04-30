@@ -1,6 +1,7 @@
 """Offer Utility Methods. """
 from decimal import Decimal
 
+from django.conf import settings
 from django.shortcuts import render
 from django.utils.translation import ugettext_lazy as _
 from oscar.core.loading import get_model
@@ -70,7 +71,7 @@ def format_benefit_value(benefit):
         benefit_value = _('{benefit_value}%'.format(benefit_value=benefit_value))
     else:
         converted_benefit = add_currency(Decimal(benefit.value))
-        benefit_value = _('${benefit_value}'.format(benefit_value=converted_benefit))
+	benefit_value = _('{currency_symbol} {benefit_value}'.format(currency_symbol=settings.OSCAR_DEFAULT_CURRENCY_SYMBOL, benefit_value=converted_benefit))
     return benefit_value
 
 

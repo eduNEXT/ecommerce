@@ -13,6 +13,7 @@ class ProcessorMisconfiguredError(Exception):
     pass
 
 
+
 class ProcessorNotFoundError(Exception):
     """Raised when a requested payment processor cannot be found."""
     pass
@@ -53,4 +54,9 @@ class PCIViolation(PaymentError):
 
 class InvalidBasketError(PaymentError):
     """ Payment was made for an invalid basket. """
+    pass
+
+#SEBAS CHANGE
+class InvalidPayUStatus(GatewayError):
+    """The decision returned by CyberSource was not recognized."""
     pass

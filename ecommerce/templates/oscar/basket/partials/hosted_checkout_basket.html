@@ -19,11 +19,12 @@
                 <div class="basket-items">
                     {% if line_data.seat_type %}
                         <p class="certificate_type">
-                            {% trans "Earn a valuable certificate to showcase the skills you learn in" %}
+                            Obtén tu certificado respaldado por Campus Romero para demostrar las habilidades aprendidas en el curso.
+                            <!--{% trans "Earn a valuable certificate to showcase the skills you learn in" %}-->
                         </p>
                     {% endif %}
                     <div class="row">
-                        <div class="col-md-2 col-sm-12 product-image">
+                        <div class="col-md-2 col-sm-12 product-image" style="display: none">
                             {{ form.id }}
                             <img class="thumbnail" src="{{ line_data.image_url|default_if_none:'' }}"
                                  alt="{{ line_data.product_title|default_if_none:'' }}"/>
@@ -31,7 +32,7 @@
                         <div class="col-md-5 col-sm-12">
                             <p class="product-title">{{ line_data.product_title }} {% if line_data.course_key %}- {{ line_data.course_key.org }}
                                 ({{ line_data.course_key.run }}) {% endif %}</p>
-                            <p class="product-description">{{ line_data.product_description }}</p>
+                            <p class="product-description" style="display: none">{{ line_data.product_description }} </p>
                         </div>
                         {% if line_data.enrollment_code %}
                             <div class="col-md-1 col-xs-12">
@@ -108,7 +109,7 @@
                         {% if voucher_form %}
                             <div class="use-voucher col-sm-7 col-xs-8">
                                 <p id="voucher_form_link">
-                                    <a href="#voucher">{% trans "Apply a coupon code" %}</a>
+                                    <a href="#voucher">{% trans "Ingresa tu cupón de descuento" %}</a>
                                 </p>
                                 {% include 'basket/partials/add_voucher_form.html' %}
                             </div>
@@ -144,14 +145,19 @@
                        data-track-event="edx.bi.ecommerce.basket.free_checkout"
                        data-track-category="checkout"
                        class="btn btn-success checkout-button">
-                        {% trans "Place Order" %}
+                        {% trans "PAGAR AQU&Iacute;" %}
                     </a>
                 {% else %}
                     {% for processor in payment_processors %}
+                        
+                        {% if processor.NAME == 'payu' %}
+
                         <button data-track-type="click"
                                 data-track-event="edx.bi.ecommerce.basket.payment_selected"
                                 data-track-category="checkout"
                                 data-processor-name="{{ processor.NAME|lower }}"
+                                data-course-id="{{ course_key }}"
+
                                 data-track-checkout-type="hosted"
                                 class="btn payment-button"
                                 id="{{ processor.NAME|lower }}">
@@ -160,8 +166,11 @@
                             {% elif processor.NAME == 'paypal' %}
                                 {# Translators: Do NOT translate the name PayPal. #}
                                 {% trans "Checkout with PayPal" %}
+                            {% elif processor.NAME == 'payu' %}
+                                {% trans "PAGAR AQUÍ" %}
                             {% endif %}
                         </button>
+                        {% endif %}
                     {% endfor %}
                 {% endif %}
             </div>
@@ -170,19 +179,26 @@
 
     <div class="row verification-note">
         <div class="col-sm-12">
-            <span><i class="fa fa-exclamation-circle"></i></span>
+            <span style="display: none"><i class="fa fa-exclamation-circle"></i></span>
             {# Translators: <strong></strong> tags will bold the text within. Keep the tags and translate the text within. #}
             {% if display_verification_message %}
-                {% trans "<strong>Note:</strong> To earn a verified certificate, you must verify your identity with a <strong>webcam</strong> and a <strong>government-issued photo ID</strong>. " %}
+                {% trans "" %}
             {% else %}
-                {% trans "<strong>Note:</strong> To complete your enrollment, select Checkout or Checkout with PayPal." %}
+                {% trans "" %}
             {% endif %}
         </div>
     </div>
     <div class="row help">
         <div class="col-sm-12">
-            <p><strong>{% trans "Have questions?" %}</strong></p>
-            <a href="{{ support_url }}">{% trans "Please read our FAQs to view common questions about our certificates." %}</a>
+            <p><strong>{% trans "¿Tienes dudas?" %}</strong></p>
+            <a href="http://www.campusromero.pe/consultas" target="_blank">{% trans " Si tienes dudas o consultas, te invitamos a leer nuestras preguntas frecuentes. " %}</a>
         </div>
     </div>
+</div>
+
+<script type="text/javascript">
+    var mivarcup = document.getElementById("payu").getAttribute("data-course-id");
+    if( mivarcup == "course-v1:LBM+GET-UPC01+2017" ) document.getElementById("voucher_form_link").style.display = 'none';
+</script>
+
 </div>

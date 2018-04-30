@@ -33,9 +33,10 @@ class CheckoutView(APIView):
         # Get the basket, and make sure it belongs to the current user.
         try:
             basket = request.user.baskets.get(id=basket_id)
+            logging.info('SE VIENE EL OBJETO BASKET ---------------------------------------------------->')
+            logging.info(basket.__dict__)
         except ObjectDoesNotExist:
             return HttpResponseBadRequest('Basket [{}] not found.'.format(basket_id))
-
         # Freeze the basket so that it cannot be modified
         basket.strategy = request.strategy
         Applicator().apply(basket, request.user, request)

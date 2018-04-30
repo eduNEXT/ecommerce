@@ -41,8 +41,15 @@ class CouponReportCSVView(StaffOnlyMixin, View):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename={}'.format(filename)
 
-        writer = csv.DictWriter(response, fieldnames=field_names)
-        writer.writeheader()
+
+        try:
+            writer = csv.DictWriter(response, fieldnames=field_names, extrasaction='ignore')
+            writer.writeheader()
+        except Exception as E:
+            logging.info(E)
+            writer = csv.DictWriter(response, fieldnames=field_names)
+            writer.writeheader()
+
         for row in rows:
             for key, value in row.items():
                 if isinstance(row[key], unicode):

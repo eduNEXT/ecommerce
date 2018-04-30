@@ -290,6 +290,11 @@ class SiteConfiguration(models.Model):
         """
         scheme = 'http' if settings.DEBUG else 'https'
         ecommerce_url_root = "{scheme}://{domain}".format(scheme=scheme, domain=self.site.domain)
+        logging.info('estoy ahora en el models juajuajuajauajuaa')
+        logging.info(ecommerce_url_root)
+        logging.info(path)
+        logging.info(urljoin(ecommerce_url_root, path))
+
         return urljoin(ecommerce_url_root, path)
 
     def build_lms_url(self, path=''):
@@ -348,17 +353,16 @@ class SiteConfiguration(models.Model):
         """
         key = 'siteconfiguration_access_token_{}'.format(self.id)
         access_token = cache.get(key)
-
         # pylint: disable=unsubscriptable-object
         if not access_token:
             url = '{root}/access_token'.format(root=self.oauth2_provider_url)
+            log.info('---- GENERATE ACCESS TOKEN----')
             access_token, expiration_datetime = EdxRestApiClient.get_oauth_access_token(
                 url,
                 self.oauth_settings['SOCIAL_AUTH_EDX_OIDC_KEY'],
                 self.oauth_settings['SOCIAL_AUTH_EDX_OIDC_SECRET'],
                 token_type='jwt'
             )
-
             expires = (expiration_datetime - datetime.datetime.utcnow()).seconds
             cache.set(key, access_token, expires)
 

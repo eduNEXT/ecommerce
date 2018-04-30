@@ -49,8 +49,13 @@ def is_custom_code(obj):
 
 
 def is_enrollment_code(obj):
-    benefit = retrieve_voucher(obj).benefit
-    return benefit.type == Benefit.PERCENTAGE and benefit.value == 100
+    try:
+        benefit = retrieve_voucher(obj).benefit
+        return benefit.type == Benefit.PERCENTAGE and benefit.value == 100
+    except:
+        logger.error("Error en objeto")
+        logger.error(obj)
+        return False
 
 
 def retrieve_benefit(obj):
@@ -332,6 +337,7 @@ class AtomicPublicationSerializer(serializers.Serializer):  # pylint: disable=ab
 
     def __init__(self, *args, **kwargs):
         super(AtomicPublicationSerializer, self).__init__(*args, **kwargs)
+
         self.partner = kwargs['context'].pop('partner', None)
 
     def validate_products(self, products):
@@ -427,8 +433,12 @@ class AtomicPublicationSerializer(serializers.Serializer):  # pylint: disable=ab
                 if course.get_enrollment_code():
                     course.toggle_enrollment_code_status(is_active=create_enrollment_code)
 
+                # sebas
                 resp_message = course.publish_to_lms()
                 published = (resp_message is None)
+
+                logging.info('----------------------asdasdasd')
+                logging.info(published)
 
                 if published:
                     return created, None, None

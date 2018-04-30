@@ -1,5 +1,5 @@
 import warnings
-
+import logging
 from threadlocals.threadlocals import get_current_request
 
 from ecommerce.core.exceptions import MissingRequestError
@@ -31,6 +31,11 @@ def get_ecommerce_url(path=''):
         MissingRequestError: If the current ecommerce site is not in threadlocal storage
     """
     site_configuration = _get_site_configuration()
+    logging.info('ESTAMOS EN get_ecommerce_url guaaaaaau')
+    try:
+        logging.info(site_configuration.__dict__)
+    except:
+        logging.info('nada :(')
     return site_configuration.build_ecommerce_url(path)
 
 

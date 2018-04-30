@@ -19,7 +19,7 @@ from ecommerce.extensions.checkout.utils import get_receipt_page_url
 Applicator = get_class('offer.utils', 'Applicator')
 Basket = get_model('basket', 'Basket')
 Order = get_model('order', 'Order')
-
+logger = logging.getLogger(__name__)
 
 class FreeCheckoutView(EdxOrderPlacementMixin, RedirectView):
     """ View to handle free checkouts.
@@ -191,7 +191,6 @@ class ReceiptResponseView(ThankYouView):
         if request.user == order.user:
             for line in order.lines.all():
                 product = line.product
-
                 if not verified_course_id and getattr(product.attr, 'id_verification_required', False):
                     verified_course_id = product.attr.course_key
 

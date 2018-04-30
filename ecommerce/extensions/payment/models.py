@@ -35,6 +35,11 @@ class PaypalWebProfile(models.Model):
     id = models.CharField(max_length=255, primary_key=True)
     name = models.CharField(max_length=255, unique=True)
 
+class PayuWebProfile(models.Model):
+    id = models.CharField(max_length=255, primary_key=True)
+    name = models.CharField(max_length=255, unique=True)
+
+
 
 class PaypalProcessorConfiguration(SingletonModel):
     """ This is a configuration model for PayPal Payment Processor"""

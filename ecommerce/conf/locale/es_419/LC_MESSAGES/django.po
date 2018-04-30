@@ -2012,7 +2012,7 @@ msgstr "Colocar la orden"
 
 #: ecommerce/templates/oscar/basket/partials/hosted_checkout_basket.html:22
 msgid "Earn a valuable certificate to showcase the skills you learn in"
-msgstr "Obtenga un valioso certificado para mostrar las compentencias aprendidas en"
+msgstr "Obtén tu certificado respaldado por Campus Romero para demostrar las habilidades aprendidas en el curso."
 
 #: ecommerce/templates/oscar/basket/partials/hosted_checkout_basket.html:68
 #, python-format

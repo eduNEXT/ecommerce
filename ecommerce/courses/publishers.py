@@ -10,6 +10,7 @@ from oscar.core.loading import get_model
 from ecommerce.core.constants import ENROLLMENT_CODE_SEAT_TYPES
 from ecommerce.courses.utils import mode_for_seat
 
+
 logger = logging.getLogger(__name__)
 Product = get_model('catalogue', 'Product')
 StockRecord = get_model('partner', 'StockRecord')
@@ -78,6 +79,7 @@ class LMSPublisher(object):
                 # Note that %r is used to log the repr() of the response content, which may sometimes
                 # contain non-ASCII Unicode. We don't know (or want to guess) the encoding, so using %r will log the
                 # raw bytes of the message, freeing us from the possibility of encoding errors.
+                
                 logger.exception(
                     'Failed to publish CreditCourse for [%s] to LMS. Status was [%d]. Body was [%s].',
                     course_id,
@@ -86,6 +88,7 @@ class LMSPublisher(object):
                 )
                 return error_message
             except:  # pylint: disable=bare-except
+
                 logger.exception('Failed to publish CreditCourse for [%s] to LMS.', course_id)
                 return error_message
 
@@ -96,9 +99,12 @@ class LMSPublisher(object):
                 'verification_deadline': verification_deadline,
                 'modes': modes,
             }
-
             commerce_api_client = course.site.siteconfiguration.commerce_api_client
+
+            # esta linea siguiente es el problema
+            # permisos para acceder al API del ecommerce?
             commerce_api_client.courses(course_id).put(data=data)
+
             logger.info('Successfully published commerce data for [%s].', course_id)
         except SlumberHttpBaseException as e:  # pylint: disable=bare-except
             logger.exception(
