@@ -63,6 +63,12 @@ class PayU(BasePaymentProcessor):
         self.payment_page_url = configuration['payment_page_url']
         self.language_code = settings.LANGUAGE_CODE
 
+        try:
+            self.test = configuration['test']
+        except KeyError:
+            # This is the case for production mode
+            self.test = None
+
     @property
     def dashboard_url(self):
         return get_lms_url(u'/dashboard')
@@ -162,7 +168,6 @@ class PayU(BasePaymentProcessor):
             #'reference_number': basket.order_number,
             'currency': basket.currency,
             'signature': self._generate_signature(self.api_key, self.merchant_id, codigoReferencia, str(basket.total_incl_tax), str(basket.currency)),
-            'test': '0',
             'buyerEmail': user.email,
             'responseUrl': responseUrl,
             'confirmationUrl': confirmationUrl
@@ -171,6 +176,9 @@ class PayU(BasePaymentProcessor):
             #'override_custom_cancel_page': self.cancel_page_url,
         }        
         parameters['payment_page_url'] = self.payment_page_url
+
+        if self.test:
+            parameters['test'] = self.test
 
         return parameters
 
