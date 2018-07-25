@@ -329,47 +329,47 @@ LOGGING = {
             'formatter': 'standard',
             'stream': 'ext://sys.stdout',
         },
-        'local': {
-            'level': level,
-            'class': 'logging.handlers.SysLogHandler',
-            'address': syslog_address,
-            'formatter': 'syslog_format',
-            'facility': SysLogHandler.LOG_LOCAL0,
-        },
+        # 'local': {
+        #     'level': level,
+        #     'class': 'logging.handlers.SysLogHandler',
+        #     'address': syslog_address,
+        #     'formatter': 'syslog_format',
+        #     'facility': SysLogHandler.LOG_LOCAL0,
+        # },
     },
     'loggers': {
         'django': {
-            'handlers': ['console', 'local'],
+            'handlers': ['console'],
             'propagate': True,
             'level': 'INFO'
         },
         'requests': {
-            'handlers': ['console', 'local'],
+            'handlers': ['console'],
             'propagate': True,
             'level': 'WARNING'
         },
         'factory': {
-            'handlers': ['console', 'local'],
+            'handlers': ['console'],
             'propagate': True,
             'level': 'WARNING'
         },
         'elasticsearch': {
-            'handlers': ['console', 'local'],
+            'handlers': ['console'],
             'propagate': True,
             'level': 'WARNING'
         },
         'urllib3': {
-            'handlers': ['console', 'local'],
+            'handlers': ['console'],
             'propagate': True,
             'level': 'WARNING'
         },
         'django.request': {
-            'handlers': ['console', 'local'],
+            'handlers': ['console'],
             'propagate': True,
             'level': 'WARNING'
         },
         '': {
-            'handlers': ['console', 'local'],
+            'handlers': ['console'],
             'level': 'DEBUG',
             'propagate': False
         },

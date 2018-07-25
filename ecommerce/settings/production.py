@@ -24,7 +24,7 @@ COMPRESS_CSS_FILTERS += [
     'compressor.filters.cssmin.CSSMinFilter',
 ]
 
-LOGGING['handlers']['local']['level'] = 'INFO'
+#LOGGING['handlers']['local']['level'] = 'INFO'
 
 
 def get_env_setting(setting):
