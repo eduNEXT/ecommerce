@@ -54,3 +54,7 @@ class PCIViolation(PaymentError):
 class InvalidBasketError(PaymentError):
     """ Payment was made for an invalid basket. """
     pass
+
+class InvalidPayUStatus(GatewayError):
+    """The decision returned by payU was not recognized."""
+    pass
