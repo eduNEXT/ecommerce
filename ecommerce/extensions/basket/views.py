@@ -184,7 +184,7 @@ class BasketSummaryView(BasketView):
             )
 
         return {
-            'product_title': course_name,
+            'product_title': product.title,
             'course_key': course_key,
             'image_url': image_url,
             'product_description': short_description,
