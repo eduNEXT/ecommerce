@@ -2,7 +2,7 @@
 # edX translation file
 # Copyright (C) 2018 edX
 # This file is distributed under the GNU AFFERO GENERAL PUBLIC LICENSE.
-# 
+#
 # Translators:
 # Albeiro Gonzalez <albeiro.gonzalez@edunext.co>, 2018
 # Anthony Mangano <amangano@edx.org>, 2017
@@ -2325,7 +2325,7 @@ msgstr "Colocar la orden"
 
 #: ecommerce/templates/oscar/basket/partials/hosted_checkout_basket.html:22
 msgid "Earn a valuable certificate to showcase the skills you learn in"
-msgstr "Obtenga un valioso certificado para mostrar las compentencias aprendidas en"
+msgstr "Obtén tu certificado respaldado por Campus Romero para demostrar las habilidades aprendidas en el curso."
 
 #: ecommerce/templates/oscar/basket/partials/hosted_checkout_basket.html:68
 #, python-format
@@ -2345,7 +2345,7 @@ msgstr "\nCódigo de cupón %(voucher_code)s aplicado\n                         
 
 #: ecommerce/templates/oscar/basket/partials/hosted_checkout_basket.html:111
 msgid "Apply a coupon code"
-msgstr "Aplicar un código de cupón"
+msgstr "Ingresa tu cupón de descuento"
 
 #: ecommerce/templates/oscar/basket/partials/hosted_checkout_basket.html:159
 msgid "Checkout"
@@ -2371,11 +2371,11 @@ msgstr "<strong>Nota:</strong> Para completar su inscripción, seleccione Pagar 
 
 #: ecommerce/templates/oscar/basket/partials/hosted_checkout_basket.html:184
 msgid "Have questions?"
-msgstr "¿Tiene preguntas?"
+msgstr "¿Tienes preguntas?"
 
 #: ecommerce/templates/oscar/basket/partials/hosted_checkout_basket.html:185
 msgid "Please read our FAQs to view common questions about our certificates."
-msgstr "Por favor revise nuestra sección de FAQs para que vea dudas frecuentes sobre nuestros certificados."
+msgstr "Si tienes dudas o consultas, te invitamos a leer nuestras preguntas frecuentes."
 
 #: ecommerce/templates/oscar/basket/partials/seat_type.html:5
 #, python-format
@@ -3566,3 +3566,7 @@ msgstr "Este cliente aún no ha escrito ninguna evaluación."
 #: ecommerce/urls.py:41
 msgid "E-Commerce Service Administration"
 msgstr "Administración del servicio de E-commerce"
+
+#: ecommerce/templates/oscar/basket/partials/hosted_checkout_basket.html:164
+msgid "Pay Here"
+msgstr "PAGAR AQUÍ"
