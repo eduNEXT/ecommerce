@@ -46,7 +46,7 @@ from ecommerce.extensions.analytics.utils import (
     translate_basket_line_for_segment
 )
 from ecommerce.extensions.basket import message_utils
-from ecommerce.extensions.basket.constants import EMAIL_OPT_IN_ATTRIBUTE
+from ecommerce.extensions.basket.constants import EMAIL_OPT_IN_ATTRIBUTE, DISABLE_CHECKOUT_SKU_SWITCH_NAME
 from ecommerce.extensions.basket.exceptions import BadRequestException, RedirectException, VoucherException
 from ecommerce.extensions.basket.utils import (
     add_invalid_code_message_to_url,
@@ -140,7 +140,8 @@ class BasketLogicMixin:
                 }
 
             context_updates['order_details_msg'] = self._get_order_details_message(product)
-            context_updates['switch_link_text'], context_updates['partner_sku'] = get_basket_switch_data(product)
+            if not waffle.switch_is_active(DISABLE_CHECKOUT_SKU_SWITCH_NAME):
+                context_updates['switch_link_text'], context_updates['partner_sku'] = get_basket_switch_data(product)
 
             line_data.update({
                 'sku': product.stockrecords.first().partner_sku,
