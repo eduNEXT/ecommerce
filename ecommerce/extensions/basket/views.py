@@ -29,7 +29,7 @@ from ecommerce.extensions.analytics.utils import (
     track_segment_event,
     translate_basket_line_for_segment
 )
-from ecommerce.extensions.basket.constants import EMAIL_OPT_IN_ATTRIBUTE
+from ecommerce.extensions.basket.constants import EMAIL_OPT_IN_ATTRIBUTE, DISABLE_CHECKOUT_SKU_SWITCH_NAME
 from ecommerce.extensions.basket.utils import (
     add_utm_params_to_url,
     apply_voucher_on_basket_and_check_discount,
@@ -293,7 +293,8 @@ class BasketSummaryView(BasketView):
                 }
 
             # Get variables for the switch link that toggles from enrollment codes and seat.
-            switch_link_text, partner_sku = get_basket_switch_data(line.product)
+            if not waffle.switch_is_active(DISABLE_CHECKOUT_SKU_SWITCH_NAME):
+                switch_link_text, partner_sku = get_basket_switch_data(line.product)
 
             if line.has_discount:
                 benefit = self.request.basket.applied_offers().values()[0].benefit
