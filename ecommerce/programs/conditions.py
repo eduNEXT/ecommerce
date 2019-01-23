@@ -40,9 +40,6 @@ class ProgramCourseRunSeatsCondition(SingleItemConsumptionConditionMixin, Condit
                     program_skus.update(
                         set([seat['sku'] for seat in course_run['seats'] if seat['type'] in applicable_seat_types])
                     )
-                for entitlement in course['entitlements']:
-                    if entitlement['mode'].lower() in applicable_seat_types:
-                        program_skus.add(entitlement['sku'])
         return program_skus
 
     def _get_lms_resource_for_user(self, basket, resource_name, endpoint):
@@ -123,7 +120,7 @@ class ProgramCourseRunSeatsCondition(SingleItemConsumptionConditionMixin, Condit
         else:
             return False
 
-        retrieve_entitlements = self._has_entitlements(program)
+        retrieve_entitlements = False
         enrollments, entitlements = self._get_user_ownership_data(basket, retrieve_entitlements)
 
         for course in program['courses']:
@@ -144,9 +141,6 @@ class ProgramCourseRunSeatsCondition(SingleItemConsumptionConditionMixin, Condit
             skus = set()
             for course_run in course['course_runs']:
                 skus.update(set([seat['sku'] for seat in course_run['seats'] if seat['type'] in applicable_seat_types]))
-            for entitlement in course['entitlements']:
-                if entitlement['mode'].lower() in applicable_seat_types:
-                    skus.add(entitlement['sku'])
 
             # The lack of a difference in the set of SKUs in the basket and the course indicates that
             # that there is no intersection. Therefore, the basket contains no SKUs for the current course.
