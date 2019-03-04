@@ -1,16 +1,13 @@
 # -*- coding: utf-8 -*-
 """ Views for interacting with the payment processor. """
 import logging
-import os
-from cStringIO import StringIO
 from decimal import Decimal
 from django.views.decorators.csrf import csrf_exempt
 from ecommerce.extensions.order.constants import PaymentEventTypeName
 
-from django.core.exceptions import MultipleObjectsReturned
-from django.core.management import call_command
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
-from django.http import Http404, HttpResponse, HttpResponseBadRequest
+from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.utils.decorators import method_decorator
 from django.views.generic import View
@@ -55,31 +52,27 @@ class PayuPaymentExecutionView(EdxOrderPlacementMixin, View):
     def dispatch(self, request, *args, **kwargs):
         return super(PayuPaymentExecutionView, self).dispatch(request, *args, **kwargs)
 
-    def _get_basket(self, payment_id):
+    def _get_basket(self, basket_id):
         """
-        Retrieve a basket using a payment ID.
+        Retrieve a basket using a basket ID.
 
         Arguments:
-            payment_id: payment_id received from PayPal.
+            basket_id: basket_id to look for.
 
         Returns:
-            It will return related basket or log exception and return None if
-            duplicate payment_id received or any other exception occurred.
-
+            It will return related basket or None if an error occurs
         """
+
+        if not basket_id:
+            return None
+
         try:
-            basket = PaymentProcessorResponse.objects.get(
-                processor_name=self.payment_processor.NAME,
-                transaction_id=payment_id
-            ).basket
+            basket_id = int(basket_id)
+            basket = Basket.objects.get(id=basket_id)
             basket.strategy = strategy.Default()
             Applicator().apply(basket, basket.owner, self.request)
             return basket
-        except MultipleObjectsReturned:
-            logger.exception(u"Duplicate payment ID [%s] received from PayPal.", payment_id)
-            return None
-        except Exception:  # pylint: disable=broad-except
-            logger.exception(u"Unexpected error during basket retrieval while executing PayPal payment.")
+        except (ValueError, ObjectDoesNotExist):
             return None
 
     def get(self, request):
@@ -89,9 +82,13 @@ class PayuPaymentExecutionView(EdxOrderPlacementMixin, View):
         logger.info(u"PayU payment [%s] transactionState [%s]", payment_id, transactionState)
 
         payu_response = request.GET.dict()
-        basket = self._get_basket(payment_id)
-
-        if not basket:
+        try:
+            basket_id = OrderNumberGenerator().basket_id(payment_id)
+            basket = self._get_basket(basket_id)
+            if not basket:
+                logger.error('Unable to get non-existent basket [%s].', basket_id)
+                return redirect(self.payment_processor.error_url)
+        except:  # pylint: disable=bare-except
             return redirect(self.payment_processor.error_url)
 
         receipt_url = get_receipt_page_url(
