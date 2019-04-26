@@ -1,68 +1,65 @@
 # -*- coding: utf-8 -*-
-""" Views for interacting with the payment processor. """
+""" PayU payment processing views """
 import logging
-from decimal import Decimal
-from django.views.decorators.csrf import csrf_exempt
-from ecommerce.extensions.order.constants import PaymentEventTypeName
 
-from django.core.exceptions import ObjectDoesNotExist
-from django.db import transaction
-from django.http import HttpResponse
-from django.shortcuts import redirect
-from django.utils.decorators import method_decorator
 from django.views.generic import View
+from django.db import transaction
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from django.core.exceptions import ObjectDoesNotExist
+from django.core.urlresolvers import reverse
+from django.shortcuts import redirect
+from django.http import HttpResponse
+
 from oscar.apps.partner import strategy
-from oscar.apps.payment.exceptions import PaymentError
 from oscar.core.loading import get_class, get_model
+from oscar.apps.payment.exceptions import PaymentError, TransactionDeclined
 
 from ecommerce.extensions.checkout.mixins import EdxOrderPlacementMixin
 from ecommerce.extensions.checkout.utils import get_receipt_page_url
-from ecommerce.extensions.payment.processors.payu import PayU
+from ecommerce.extensions.payment.exceptions import InvalidSignatureError
+from ecommerce.extensions.payment.processors.payu import Payu
 
 logger = logging.getLogger(__name__)
 
-PaymentEvent = get_model('order', 'PaymentEvent')
-PaymentEventType = get_model('order', 'PaymentEventType')
-OrderNote = get_model('order', 'OrderNote')
-Source = get_model('payment', 'Source')
-SourceType = get_model('payment', 'SourceType')
-
-Order = get_model('order', 'Order')
-
-Applicator = get_class('offer.utils', 'Applicator')
+Applicator = get_class('offer.applicator', 'Applicator')
 Basket = get_model('basket', 'Basket')
 BillingAddress = get_model('order', 'BillingAddress')
 Country = get_model('address', 'Country')
 NoShippingRequired = get_class('shipping.methods', 'NoShippingRequired')
 OrderNumberGenerator = get_class('order.utils', 'OrderNumberGenerator')
 OrderTotalCalculator = get_class('checkout.calculators', 'OrderTotalCalculator')
-PaymentProcessorResponse = get_model('payment', 'PaymentProcessorResponse')
 
 
-class PayuPaymentExecutionView(EdxOrderPlacementMixin, View):
-    """Execute an approved PayU payment and place an order for paid products as appropriate."""
-
-    PAYMENT_PENDING = '7'
+class PayUPaymentResponseView(EdxOrderPlacementMixin, View):
+    """ Validates a response from PayU and processes the associated basket/order appropriately. """
 
     @property
     def payment_processor(self):
-        return PayU(self.request.site)
+        return Payu(self.request.site)
 
+    # Disable atomicity for the view. Otherwise, we'd be unable to commit to the database
+    # until the request had concluded; Django will refuse to commit when an atomic() block
+    # is active, since that would break atomicity. Without an order present in the database
+    # at the time fulfillment is attempted, asynchronous order fulfillment tasks will fail.
     @method_decorator(transaction.non_atomic_requests)
+    @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
-        return super(PayuPaymentExecutionView, self).dispatch(request, *args, **kwargs)
+        return super(PayUPaymentResponseView, self).dispatch(request, *args, **kwargs)
+
+    def _get_billing_address(self, payu_response):
+
+        return BillingAddress(
+            first_name=payu_response.get('cc_holder', ''),
+            last_name=payu_response.get('cc_holder', ''),
+            line1=payu_response['billing_address'],
+
+            # Oscar uses line4 for city
+            line4=payu_response['billing_city'],
+            country=Country.objects.get(
+                iso_3166_1_a2=payu_response['billing_country']))
 
     def _get_basket(self, basket_id):
-        """
-        Retrieve a basket using a basket ID.
-
-        Arguments:
-            basket_id: basket_id to look for.
-
-        Returns:
-            It will return related basket or None if an error occurs
-        """
-
         if not basket_id:
             return None
 
@@ -75,21 +72,121 @@ class PayuPaymentExecutionView(EdxOrderPlacementMixin, View):
         except (ValueError, ObjectDoesNotExist):
             return None
 
-    def get(self, request):
-        """Handle an incoming user returned to us by PayPal after approving payment."""
-        payment_id = request.GET.get('orderNum')
-        transactionState = request.GET.get('transactionState')
-        logger.info(u"PayU payment [%s] transactionState [%s]", payment_id, transactionState)
+    def post(self, request):
+        """Process a PayU merchant notification and place an order for paid products as appropriate."""
+
+        # Note (CCB): Orders should not be created until the payment processor has validated the response's signature.
+        # This validation is performed in the handle_payment method. After that method succeeds, the response can be
+        # safely assumed to have originated from PayU.
+        payu_response = request.POST.dict()
+        basket = None
+        transaction_id = None
+
+        try:
+            transaction_id = payu_response.get('transaction_id')
+            order_number = payu_response.get('reference_sale')
+            basket_id = OrderNumberGenerator().basket_id(order_number)
+
+            logger.info(
+                'Received PayU merchant notification for transaction [%s], associated with basket [%d].',
+                transaction_id,
+                basket_id
+            )
+
+            basket = self._get_basket(basket_id)
+
+            if not basket:
+                logger.error('Received payment for non-existent basket [%s].', basket_id)
+                return HttpResponse(status=400)
+        finally:
+            # Store the response in the database.
+            ppr = self.payment_processor.record_processor_response(payu_response, transaction_id=transaction_id,
+                                                                   basket=basket)
+
+        try:
+            # Explicitly delimit operations which will be rolled back if an exception occurs.
+            with transaction.atomic():
+                try:
+                    self.handle_payment(payu_response, basket)
+                except InvalidSignatureError:
+                    logger.exception(
+                        'Received an invalid PayU response. The payment response was recorded in entry [%d].',
+                        ppr.id
+                    )
+                    return HttpResponse(status=400)
+                except TransactionDeclined as exception:
+                    logger.info(
+                        'PayU payment did not complete for basket [%d] because [%s]. '
+                        'The payment response was recorded in entry [%d].',
+                        basket.id,
+                        exception.__class__.__name__,
+                        ppr.id
+                    )
+                    return HttpResponse()
+                except PaymentError:
+                    logger.exception(
+                        'PayU payment failed for basket [%d]. The payment response was recorded in entry [%d].',
+                        basket.id,
+                        ppr.id
+                    )
+                    return HttpResponse()
+        except:  # pylint: disable=bare-except
+            logger.exception('Attempts to handle payment for basket [%d] failed.', basket.id)
+            return HttpResponse(status=500)
+
+        try:
+            # Note (CCB): In the future, if we do end up shipping physical products, we will need to
+            # properly implement shipping methods. For more, see
+            # http://django-oscar.readthedocs.org/en/latest/howto/how_to_configure_shipping.html.
+            shipping_method = NoShippingRequired()
+            shipping_charge = shipping_method.calculate(basket)
+
+            # Note (CCB): This calculation assumes the payment processor has not sent a partial authorization,
+            # thus we use the amounts stored in the database rather than those received from the payment processor.
+            user = basket.owner
+            order_total = OrderTotalCalculator().calculate(basket, shipping_charge)
+            billing_address = self._get_billing_address(payu_response)
+
+            self.handle_order_placement(
+                order_number,
+                user,
+                basket,
+                None,
+                shipping_method,
+                shipping_charge,
+                billing_address,
+                order_total,
+                request=request,
+            )
+
+            return HttpResponse()
+        except:  # pylint: disable=bare-except
+            logger.exception(self.order_placement_failure_msg, basket.id)
+            return HttpResponse(status=500)
+
+    def get(self, request, *args, **kwargs):
+        # pylint: disable=unused-argument
+        """Handle an incoming user returned to us by PayU after processing payment."""
 
         payu_response = request.GET.dict()
         try:
-            basket_id = OrderNumberGenerator().basket_id(payment_id)
+            transaction_id = payu_response.get('transactionId')
+            order_number = payu_response.get('referenceCode')
+            basket_id = OrderNumberGenerator().basket_id(order_number)
+
+            logger.info(
+                'Received PayU payer notification for transaction [%s], associated with basket [%d].',
+                transaction_id,
+                basket_id
+            )
+
             basket = self._get_basket(basket_id)
+
             if not basket:
-                logger.error('Unable to get non-existent basket [%s].', basket_id)
-                return redirect(self.payment_processor.error_url)
+                logger.error('Received payer notification for non-existent basket [%s].', basket_id)
+                return redirect(reverse('payment_error'))
         except:  # pylint: disable=bare-except
-            return redirect(self.payment_processor.error_url)
+            return redirect(reverse('payment_error'))
 
         receipt_url = get_receipt_page_url(
             order_number=basket.order_number,
@@ -97,145 +194,7 @@ class PayuPaymentExecutionView(EdxOrderPlacementMixin, View):
         )
 
         try:
-            with transaction.atomic():
-                try:
-                    self.handle_payment(payu_response, basket)
-                except PaymentError:
-                    logger.exception('PaymentError for basket [%d] failed.', basket.id)
-                    if transactionState == self.PAYMENT_PENDING:
-                        return redirect(self.payment_processor.dashboard_url)
-                    else:
-                        return redirect(self.payment_processor.error_url)
-        except:  # pylint: disable=bare-except
-            logger.exception('Attempts to handle payment for basket [%d] failed.', basket.id)
-            return redirect(receipt_url)
-
-        try:
-            shipping_method = NoShippingRequired()
-            shipping_charge = shipping_method.calculate(basket)
-            order_total = OrderTotalCalculator().calculate(basket, shipping_charge)
-
-            user = basket.owner
-            """
-            Given a basket, order number generation is idempotent. Although we've already
-            generated this order number once before, it's faster to generate it again
-            than to retrieve an invoice number from PayU.
-            """
-            order_number = basket.order_number
-
-            self.handle_order_placement(
-                order_number=order_number,
-                user=user,
-                basket=basket,
-                shipping_address=None,
-                shipping_method=shipping_method,
-                shipping_charge=shipping_charge,
-                billing_address=None,
-                order_total=order_total,
-                request=request
-            )
-
             return redirect(receipt_url)
         except:  # pylint: disable=bare-except
             logger.exception(self.order_placement_failure_msg, basket.id)
             return redirect(receipt_url)
-
-
-class PayuConfirmationExecutionView(EdxOrderPlacementMixin, View):
-    @property
-    def payment_processor(self):
-        return PayU(self.request.site)
-
-    @method_decorator(transaction.non_atomic_requests)
-    @method_decorator(csrf_exempt)
-    def dispatch(self, request, *args, **kwargs):
-        return super(PayuConfirmationExecutionView, self).dispatch(request, *args, **kwargs)
-
-    def post(self, request):
-        data = request.POST.dict()
-        transaction_id = data.get("transaction_id")
-        reference_sale = data.get("reference_sale")
-        logger.info(u"PayU transaction_id [%s], reference_sale [%s]", transaction_id, reference_sale)
-        statePayU = data.get("response_code_pol")
-        logger.info(u"PayU transaction_id [%s], statePayU [%s]", transaction_id, statePayU)
-
-        payment_id = reference_sale[:-6]
-        processor_name = self.payment_processor.NAME
-
-        basket = PaymentProcessorResponse.objects.filter(
-            processor_name=processor_name,
-            transaction_id=payment_id
-        )[0].basket
-        try:
-            if not basket:
-                logger.error('Received payment for non-existent basket [%s].', basket_id)
-                return HttpResponse(status=400)
-        finally:
-            ppr = self.payment_processor.record_processor_response(data, transaction_id=transaction_id,basket=basket)
-
-        user = basket.owner
-        logger.info(u"PayU payment [%s] approved by payer [%s]", payment_id, user.username)
-
-        if statePayU != "1":
-            logger.error('Error de transactionState [%s] en pedido [%s] por el usuario [%s].', statePayU, payment_id, user.username)
-            return HttpResponse(status=200)
-
-        ORDER_NUMBER = basket.order_number
-        try:
-            order = Order.objects.get(number=ORDER_NUMBER)
-        except Order.DoesNotExist:
-            basket.strategy = strategy.Default()
-            Applicator().apply(basket, user, self.request)
-            try:
-                shipping_method = NoShippingRequired()
-                shipping_charge = shipping_method.calculate(basket)
-                order_total = OrderTotalCalculator().calculate(basket, shipping_charge)
-                user = basket.owner
-                order_number = basket.order_number
-
-                self.handle_order_placement(
-                    order_number=order_number,
-                    user=user,
-                    basket=basket,
-                    shipping_address=None,
-                    shipping_method=shipping_method,
-                    shipping_charge=shipping_charge,
-                    billing_address=None,
-                    order_total=order_total
-                )
-                order = Order.objects.get(number=ORDER_NUMBER)
-            except:
-                logger.exception(self.order_placement_failure_msg, basket.id)
-                return HttpResponse(status=400)
-
-        with transaction.atomic():
-            OrderNote.objects.create(
-                order=order, message="Confirmación de PayU de la orden {}".format(ORDER_NUMBER)
-            )
-
-        # Get or create Source used to track transactions related to PayU
-        source_type, __ = SourceType.objects.get_or_create(name=processor_name)
-        currency = data.get("currency")
-        total = Decimal(data.get("value"))
-        email = user.email
-        label = 'PayU ({})'.format(email) if email else 'PayU Account'
-        Source.objects.create(
-            order=order,
-            source_type=source_type,
-            currency=currency,
-            amount_allocated=total,
-            amount_debited=total,
-            reference=transaction_id,
-            label=label,
-            card_type=None
-        )
-        # Create PaymentEvent to track payment
-        event_type, __ = PaymentEventType.objects.get_or_create(name=PaymentEventTypeName.PAID)
-        PaymentEvent.objects.create(
-            order=order,
-            event_type=event_type,
-            amount=total,
-            reference=transaction_id,
-            processor_name=processor_name
-        )
-        return HttpResponse(status=200)

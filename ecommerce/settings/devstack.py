@@ -31,6 +31,8 @@ PAYMENT_PROCESSOR_CONFIG = {
             'payment_page_url': 'https://sandbox.checkout.payulatam.com/ppp-web-gateway-payu/',
             'receipt_url': 'http://edx.devstack.lms/commerce/checkout/receipt/',
             'test': 1,
+            'tax': '0',
+            'tax_return_base': '0',
             'receipt_path': PAYMENT_PROCESSOR_RECEIPT_PATH,
             'cancel_checkout_path': PAYMENT_PROCESSOR_CANCEL_PATH,
         },
