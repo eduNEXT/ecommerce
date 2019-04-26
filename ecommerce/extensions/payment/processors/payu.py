@@ -36,6 +36,9 @@ class Payu(BasePaymentProcessor):
     TRANSACTION_ERROR = '104'
     PAYMENT_FORM_SIGNATURE = 1
     CONFIRMATION_SIGNATURE = 2
+    DESCRIPTION_PREFIX = u'Inscripción en'
+    DESCRIPTION_SEPARATOR = ' | '
+    MAX_SPLITS = 1
 
     def __init__(self, site):
         """
@@ -93,7 +96,7 @@ class Payu(BasePaymentProcessor):
             'confirmationUrl': self.confirmation_url,
         }
 
-        description = self.get_description(basket)
+        description = u'{} {}'.format(self.DESCRIPTION_PREFIX, self.get_description(basket))
         if description:
             parameters['description'] = description
 
@@ -105,8 +108,7 @@ class Payu(BasePaymentProcessor):
 
         return parameters
 
-    @staticmethod
-    def get_description(basket):
+    def get_description(self, basket):
         """
         Returns a unified description for all the products in the basket.
         """
@@ -117,12 +119,12 @@ class Payu(BasePaymentProcessor):
             return None
 
         descriptions = []
-        separator = ' | '
         for line in basket.lines.all():
             if line.product.get_product_class() == seat_class:
-                descriptions.append(line.product.course_id)
+                splitted_course_id = line.product.course_id.split('+', self.MAX_SPLITS)
+                descriptions.append(splitted_course_id[1])
 
-        return separator.join(descriptions)
+        return self.DESCRIPTION_SEPARATOR.join(descriptions)
 
     def handle_processor_response(self, response, basket=None):
         """
