@@ -1,57 +1,58 @@
 # -*- coding: utf-8 -*-
-""" PayU payment processing.. """
-from decimal import Decimal
-from datetime import datetime
-import pytz
-import uuid
+""" PayU payment processing. """
 import logging
-from urlparse import urljoin
-from django.conf import settings
-from django.core.urlresolvers import reverse
-from django.utils.functional import cached_property
-from oscar.apps.payment.exceptions import UserCancelled, GatewayError, TransactionDeclined
-from ecommerce.extensions.payment.exceptions import (InvalidSignatureError, InvalidPayUStatus, PartialAuthorizationError)
-from ecommerce.core.url_utils import get_ecommerce_url, get_lms_url
+
+from decimal import Decimal
+from hashlib import md5
+
+from oscar.apps.payment.exceptions import GatewayError, TransactionDeclined
+from oscar.core.loading import get_model
+
+from ecommerce.core.url_utils import get_ecommerce_url
+from ecommerce.extensions.payment.exceptions import InvalidSignatureError
 from ecommerce.extensions.payment.processors import BasePaymentProcessor, HandledProcessorResponse
-from ecommerce.extensions.payment.utils import middle_truncate
-import hashlib
-import time
-import requests
-import json
+
 
 logger = logging.getLogger(__name__)
-'''
+
 PaymentEvent = get_model('order', 'PaymentEvent')
 PaymentEventType = get_model('order', 'PaymentEventType')
-PaymentProcessorResponse = get_model('payment', 'PaymentProcessorResponse')
 ProductClass = get_model('catalogue', 'ProductClass')
 Source = get_model('payment', 'Source')
 SourceType = get_model('payment', 'SourceType')
-'''
 
-class PayU(BasePaymentProcessor):
+
+class Payu(BasePaymentProcessor):
     """
-    PayU REST API (May 2017)
+    PayU payment processor (November 2016)
+
+    For reference, see
+    http://developers.payulatam.com/en/web_checkout/integration.html
     """
 
-    NAME = u'payu'
-    DEFAULT_PROFILE_NAME = 'default'
+    NAME = 'payu'
+    TRANSACTION_ACCEPTED = '4'
+    TRANSACTION_DECLINED = '6'
+    TRANSACTION_ERROR = '104'
+    PAYMENT_FORM_SIGNATURE = 1
+    CONFIRMATION_SIGNATURE = 2
 
     def __init__(self, site):
         """
         Constructs a new instance of the PayU processor.
 
         Raises:
-            KeyError: If a required setting is not configured for this payment processor
+            KeyError: If no settings configured for this payment processor
+            AttributeError: If LANGUAGE_CODE setting is not set.
         """
-        super(PayU, self).__init__(site)
+        super(Payu, self).__init__(site)
         configuration = self.configuration
-        self.retry_attempts = configuration.get('retry_attempts', 1)
-        self.merchant_id = unicode(configuration['merchant_id'])
-        self.account_id = unicode(configuration['account_id'])
-        self.api_key = configuration['api_key']
         self.payment_page_url = configuration['payment_page_url']
-        self.language_code = settings.LANGUAGE_CODE
+        self.merchant_id = configuration['merchant_id']
+        self.account_id = configuration['account_id']
+        self.api_key = configuration['api_key']
+        self.tax = configuration['tax']
+        self.tax_return_base = configuration['tax_return_base']
 
         try:
             self.test = configuration['test']
@@ -59,145 +60,177 @@ class PayU(BasePaymentProcessor):
             # This is the case for production mode
             self.test = None
 
-    @property
-    def dashboard_url(self):
-        return get_lms_url(u'/dashboard')
-
-    @property
-    def confirmation_url(self):
-        return get_ecommerce_url(u'/payment/payu/confirmation/')
-
-    @property
-    def cancel_url(self):
-        return get_ecommerce_url(self.configuration['cancel_checkout_path'])
-
-    @property
-    def error_url(self):
-        return get_ecommerce_url(self.configuration['error_path'])
+        self.response_url = get_ecommerce_url(u'/payment/payu/notify/')
+        self.confirmation_url = get_ecommerce_url(u'/payment/payu/notify/')
 
     def get_transaction_parameters(self, basket, request=None, use_client_side_checkout=False, **kwargs):
         """
-        Create a new PayU payment.
+        Generate a dictionary of signed parameters PayU requires to complete a transaction.
 
         Arguments:
             basket (Basket): The basket of products being purchased.
 
         Keyword Arguments:
-            request (Request): A Request object which is used to construct PayU's `return_url`.
+            request (Request): A Request object which could be used to construct an absolute URL; not
+                used by this method.
 
         Returns:
-            dict: PayU-specific parameters required to complete a transaction. Must contain a URL
-                to which users can be directed in order to approve a newly created payment.
-
-        Raises:
-            GatewayError: Indicates a general error or unexpected behavior on the part of PayU which prevented
-                a payment from being created.
+            dict: PayU-specific parameters required to complete a transaction, including a signature.
         """
-        user = request.user
-        return_url = urljoin(get_ecommerce_url(), reverse('payu:payu_execute'))
-
-
-        _line = basket.all_lines()[0]
-        logging.info(basket.all_lines().__dict__)
-        _split_course = _line.product.course_id.split('+')
-        course_id = _split_course[1]+'/'+_split_course[2]
-
-        data = {
-            'intent': 'sale',
-            'redirect_urls': {
-                'course_id': course_id,
-                'return_url': return_url,
-                'cancel_url': self.cancel_url,
-                'dashboard_url': self.dashboard_url,
-            },
-            'payer': {
-                'payment_method': 'payu',
-            },
-            'transactions': [{
-                'amount': {
-                    'total': unicode(basket.total_incl_tax),
-                    'currency': basket.currency,
-                },
-                'item_list': {
-                    'items': [
-                        {
-                            'quantity': line.quantity,
-                            'name': middle_truncate(line.product.title, 127),
-                            'price': unicode(line.line_price_incl_tax_incl_discounts / line.quantity),
-                            'currency': line.stockrecord.price_currency,
-                        }
-                        for line in basket.all_lines()
-                    ],
-                },
-                'invoice_number': basket.order_number,
-            }],
-        }
-        entry = self.record_processor_response(data, transaction_id=basket.order_number, basket=basket)
-        logger.info(u"Successfully created PayU for basket [%d], user [%s].", basket.id, user)
-
-        self._verify_student(request.site,user)
-
-        # STATUS: REJECTED/PENDING/APPROVED DECLINED, ERROR, EXPIRED
-        responseUrl='{}?orderNum={}'.format(return_url, basket.order_number)
-        confirmationUrl=self.confirmation_url
-        # VD
-        fechaActual = time.strftime("%H%M%S")
-        codigoReferencia = str(basket.order_number) + str(fechaActual)
-        # --
         parameters = {
+            'payment_page_url': self.payment_page_url,
             'merchantId': self.merchant_id,
             'accountId': self.account_id,
-            'description': u'Inscripción {}'.format(course_id),
-            'referenceCode': codigoReferencia,
-            'amount': str(basket.total_incl_tax),
-            'tax': '0',
-            'taxReturnBase': '0',
+            'ApiKey': self.api_key,
+            'referenceCode': basket.order_number,
+            'tax': self.tax,
+            'taxReturnBase': self.tax_return_base,
             'currency': basket.currency,
-            'signature': self._generate_signature(self.api_key, self.merchant_id, codigoReferencia, str(basket.total_incl_tax), str(basket.currency)),
-            'buyerEmail': user.email,
-            'responseUrl': responseUrl,
-            'confirmationUrl': confirmationUrl
+            'buyerEmail': basket.owner.email,
+            'buyerFullName': basket.owner.full_name,
+            'amount': str(basket.total_incl_tax),
+            'responseUrl': self.response_url,
+            'confirmationUrl': self.confirmation_url,
         }
-        parameters['payment_page_url'] = self.payment_page_url
+
+        description = self.get_description(basket)
+        if description:
+            parameters['description'] = description
 
         if self.test:
             parameters['test'] = self.test
 
+        parameters['referenceCode'] = basket.order_number
+        parameters['signature'] = self._generate_signature(parameters, self.PAYMENT_FORM_SIGNATURE)
+
         return parameters
 
+    @staticmethod
+    def get_description(basket):
+        """
+        Returns a unified description for all the products in the basket.
+        """
+        try:
+            seat_class = ProductClass.objects.get(slug='seat')
+        except ProductClass.DoesNotExist:
+            # this occurs in test configurations where the seat product class is not in use
+            return None
+
+        descriptions = []
+        separator = ' | '
+        for line in basket.lines.all():
+            if line.product.get_product_class() == seat_class:
+                descriptions.append(line.product.course_id)
+
+        return separator.join(descriptions)
+
     def handle_processor_response(self, response, basket=None):
-        available_attempts = 1
+        """
+        Handle a response (i.e., "merchant notification") from PayU.
 
-        transaction_id = response['transactionId']
-        transactionState = response['transactionState']
-        status = response['lapTransactionState'] #REJECTED/PENDING/APPROVED DECLINED, ERROR, EXPIRED
+        This method does the following:
+            1. Verify the validity of the response.
+            2. Create PaymentEvents and Sources for successful payments.
 
-        self.record_processor_response(response, transaction_id=transaction_id, basket=basket)
-        logger.info(u"Successfully executed PayU payment [%s] for basket [%d].", transaction_id, basket.id)
+        Arguments:
+            response (dict): Dictionary of parameters received from the payment processor.
 
-        if transactionState != '4':
+        Keyword Arguments:
+            basket (Basket): Basket being purchased via the payment processor.
+
+        Raises:
+            TransactionDeclined: Indicates the payment was declined by the processor.
+            GatewayError: Indicates a general error on the part of the processor.
+            InvalidPayUDecision: Indicates an unknown decision value
+        """
+
+        # Validate the signature
+        if not self.is_signature_valid(response):
+            raise InvalidSignatureError
+
+        # Raise an exception for payments that were not accepted. Consuming code should be responsible for handling
+        # and logging the exception.
+        transaction_state = response['state_pol']
+        if transaction_state != self.TRANSACTION_ACCEPTED:
             exception = {
-                'cancel': UserCancelled,
-                'decline': TransactionDeclined,
-                'error': GatewayError
-            }.get(status, InvalidPayUStatus)
+                self.TRANSACTION_DECLINED: TransactionDeclined,
+                self.TRANSACTION_ERROR: GatewayError
+            }.get(transaction_state, InvalidPayUDecision)
 
             raise exception
 
-        currency = response['currency']
-        total = Decimal(response['TX_VALUE'])
-        email = basket.owner.email
-        label = 'PayU ({})'.format(email) if email else 'PayU Account'
+        currency = response.get('currency')
+        total = Decimal(response.get('value'))
+        transaction_id = response.get('transaction_id')
+        card_number = response.get('cc_number', '')
+        card_type = response.get('lapPaymentMethod', '')
 
         return HandledProcessorResponse(
             transaction_id=transaction_id,
             total=total,
             currency=currency,
-            card_number=label,
-            card_type=None
+            card_number=card_number,
+            card_type=card_type,
         )
 
-    def issue_credit(self, source, amount, currency):
+    def _generate_signature(self, parameters, signature_type):
+        """
+        Sign the contents of the provided transaction parameters dictionary.
+
+        This allows PayU to verify that the transaction parameters have not been tampered with
+        during transit.
+
+        We also use this signature to verify that the signature we get back from PayU is valid for
+        the parameters that they are giving to us.
+
+        Arguments:
+            parameters (dict): A dictionary of transaction parameters.
+
+        Returns:
+            unicode: the signature for the given parameters
+        """
+
+        # signatures to validate payment form
+        if signature_type == self.PAYMENT_FORM_SIGNATURE:
+            uncoded = "{api_key}~{merchant_id}~{reference_code}~{amount}~{currency}".format(
+                api_key=self.api_key,
+                merchant_id=self.merchant_id,
+                reference_code=parameters['referenceCode'],
+                amount=parameters['amount'],
+                currency=parameters['currency'],
+            )
+
+        # PayU applies a logic to validate signatures on confirmation page:
+        # If the second decimal of the value parameter is zero, e.g. 150.00
+        # the parameter new_value to generate the signature should only have one decimal, as follows: 150.0
+        # If the second decimal of the value parameter is different from zero, e.g. 150.26
+        # the parameter new_value to generate the signature should have two decimals, as follows: 150.26
+        # See http://developers.payulatam.com/en/web_checkout/integration.html
+        # signatures to validate confirmation response
+        if signature_type == self.CONFIRMATION_SIGNATURE:
+            value = parameters['value']
+            last_decimal = value[-1]
+            if last_decimal == '0':
+                new_value = value[:-1]
+            else:
+                new_value = value
+
+            uncoded = "{api_key}~{merchant_id}~{reference_sale}~{new_value}~{currency}~{state_pol}".format(
+                api_key=self.api_key,
+                merchant_id=self.merchant_id,
+                reference_sale=parameters['reference_sale'],
+                new_value=new_value,
+                currency=parameters['currency'],
+                state_pol=parameters['state_pol'],
+            )
+
+        return md5(uncoded).hexdigest()
+
+    def is_signature_valid(self, response):
+        """Returns a boolean indicating if the response's signature (indicating potential tampering) is valid."""
+        return response and (self._generate_signature(response, self.CONFIRMATION_SIGNATURE) == response.get('sign'))
+
+    def issue_credit(self, order, reference_number, amount, currency):  # pylint: disable=unused-argument
         """
         This method should be implemented in the future in order
         to accept payment refunds
@@ -210,29 +243,7 @@ class PayU(BasePaymentProcessor):
 
         raise NotImplementedError
 
-    def _generate_signature(self, ApiKey, merchantId, referenceCode, amount, currency):
-        firma = hashlib.md5()
-        firma.update(ApiKey + "~" + merchantId + "~" + referenceCode + "~" + amount + "~" + currency)
-        wfirma = firma.hexdigest()
 
-        return wfirma
-
-    def _verify_student(self, site, username):
-        path_api = "/api/user/v1/preferences/change_to_verified_mode/"
-        url = get_lms_url(path_api)
-        access_token = site.siteconfiguration.access_token
-
-        headers = {
-            "authorization": "JWT {}".format(access_token),
-            "Content-Type": "application/json"
-        }
-
-        data = json.dumps({
-            "username": username.username
-        })
-
-        try:
-            response = requests.request("POST", url, data=data, headers=headers)
-            response.raise_for_status()
-        except requests.exceptions.RequestException as err:
-            raise err
+class InvalidPayUDecision(GatewayError):
+    """The decision returned by PayU was not recognized."""
+    pass

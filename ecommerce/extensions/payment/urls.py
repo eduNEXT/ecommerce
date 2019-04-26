@@ -18,8 +18,7 @@ PAYPAL_URLS = [
 ]
 
 PAYU_URLS = [
-    url(r'^execute/$', payu.PayuPaymentExecutionView.as_view(), name='payu_execute'),
-    url(r'^confirmation/$', payu.PayuConfirmationExecutionView.as_view(), name='payu_confirmation'),
+    url(r'^notify/$', payu.PayUPaymentResponseView.as_view(), name='notify'),
 ]
 
 SDN_URLS = [
