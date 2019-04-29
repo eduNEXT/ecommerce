@@ -150,6 +150,10 @@ class Payu(BasePaymentProcessor):
             dni = next(field for field in response['extended_profile'] if field["field_name"] == "dni")
             return dni['field_value']
         except (ConnectionError, SlumberBaseException, Timeout, StopIteration, KeyError, ObjectDoesNotExist):
+            logger.exception(
+                'Failed to retrieve DNI for [%s]',
+                basket.owner.email
+            )
             return None
 
     def handle_processor_response(self, response, basket=None):
