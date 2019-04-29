@@ -5,9 +5,13 @@ import logging
 from decimal import Decimal
 from hashlib import md5
 
+from django.core.exceptions import ObjectDoesNotExist
 from oscar.apps.payment.exceptions import GatewayError, TransactionDeclined
 from oscar.core.loading import get_model
+from requests.exceptions import ConnectionError, Timeout
+from slumber.exceptions import SlumberBaseException
 
+from ecommerce.core.models import User
 from ecommerce.core.url_utils import get_ecommerce_url
 from ecommerce.extensions.payment.exceptions import InvalidSignatureError
 from ecommerce.extensions.payment.processors import BasePaymentProcessor, HandledProcessorResponse
@@ -36,6 +40,9 @@ class Payu(BasePaymentProcessor):
     TRANSACTION_ERROR = '104'
     PAYMENT_FORM_SIGNATURE = 1
     CONFIRMATION_SIGNATURE = 2
+    DESCRIPTION_PREFIX = u'Inscripción en'
+    DESCRIPTION_SEPARATOR = ' | '
+    MAX_SPLITS = 1
 
     def __init__(self, site):
         """
@@ -93,9 +100,13 @@ class Payu(BasePaymentProcessor):
             'confirmationUrl': self.confirmation_url,
         }
 
-        description = self.get_description(basket)
+        description = u'{} {}'.format(self.DESCRIPTION_PREFIX, self.get_description(basket))
         if description:
             parameters['description'] = description
+
+        dni = self.get_dni(request, basket)
+        if dni:
+            parameters['payerDocument'] = dni
 
         if self.test:
             parameters['test'] = self.test
@@ -105,8 +116,7 @@ class Payu(BasePaymentProcessor):
 
         return parameters
 
-    @staticmethod
-    def get_description(basket):
+    def get_description(self, basket):
         """
         Returns a unified description for all the products in the basket.
         """
@@ -117,12 +127,34 @@ class Payu(BasePaymentProcessor):
             return None
 
         descriptions = []
-        separator = ' | '
         for line in basket.lines.all():
             if line.product.get_product_class() == seat_class:
-                descriptions.append(line.product.course_id)
+                # Assuming a course locator with the following format: course-v1:CVR+SAC01+2019
+                # we are extracting the course_id and run part of it
+                # returning SAC01+2019, for the example given above.
+                # This must be done for every course in the basket.
+                splitted_course_id = line.product.course_id.split('+', self.MAX_SPLITS)
+                descriptions.append(splitted_course_id[1])
 
-        return separator.join(descriptions)
+        return self.DESCRIPTION_SEPARATOR.join(descriptions)
+
+    @staticmethod
+    def get_dni(request, basket):
+        """
+        Returns the buyer user (edxapp user) dni
+        Returns None if an exception occurs
+        """
+        try:
+            buyer_user = User.objects.get(email=basket.owner.email)
+            response = buyer_user.account_details(request)
+            dni = next(field for field in response['extended_profile'] if field["field_name"] == "dni")
+            return dni['field_value']
+        except (ConnectionError, SlumberBaseException, Timeout, StopIteration, KeyError, ObjectDoesNotExist):
+            logger.exception(
+                'Failed to retrieve DNI for [%s]',
+                basket.owner.email
+            )
+            return None
 
     def handle_processor_response(self, response, basket=None):
         """
