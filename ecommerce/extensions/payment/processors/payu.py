@@ -5,9 +5,13 @@ import logging
 from decimal import Decimal
 from hashlib import md5
 
+from django.core.exceptions import ObjectDoesNotExist
 from oscar.apps.payment.exceptions import GatewayError, TransactionDeclined
 from oscar.core.loading import get_model
+from requests.exceptions import ConnectionError, Timeout
+from slumber.exceptions import SlumberBaseException
 
+from ecommerce.core.models import User
 from ecommerce.core.url_utils import get_ecommerce_url
 from ecommerce.extensions.payment.exceptions import InvalidSignatureError
 from ecommerce.extensions.payment.processors import BasePaymentProcessor, HandledProcessorResponse
@@ -100,6 +104,10 @@ class Payu(BasePaymentProcessor):
         if description:
             parameters['description'] = description
 
+        dni = self.get_dni(request, basket)
+        if dni:
+            parameters['payerDocument'] = dni
+
         if self.test:
             parameters['test'] = self.test
 
@@ -125,6 +133,20 @@ class Payu(BasePaymentProcessor):
                 descriptions.append(splitted_course_id[1])
 
         return self.DESCRIPTION_SEPARATOR.join(descriptions)
+
+    @staticmethod
+    def get_dni(request, basket):
+        """
+        Returns the buyer user (edxapp user) dni
+        Returns None if an exception occurs
+        """
+        try:
+            buyer_user = User.objects.get(email=basket.owner.email)
+            response = buyer_user.account_details(request)
+            dni = next(field for field in response['extended_profile'] if field["field_name"] == "dni")
+            return dni['field_value']
+        except (ConnectionError, SlumberBaseException, Timeout, StopIteration, KeyError, ObjectDoesNotExist):
+            return None
 
     def handle_processor_response(self, response, basket=None):
         """
