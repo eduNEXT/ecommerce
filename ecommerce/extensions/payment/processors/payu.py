@@ -129,6 +129,10 @@ class Payu(BasePaymentProcessor):
         descriptions = []
         for line in basket.lines.all():
             if line.product.get_product_class() == seat_class:
+                # Assuming a course locator with the following format: course-v1:CVR+SAC01+2019
+                # we are extracting the course_id and run part of it
+                # returning SAC01+2019, for the example given above.
+                # This must be done for every course in the basket.
                 splitted_course_id = line.product.course_id.split('+', self.MAX_SPLITS)
                 descriptions.append(splitted_course_id[1])
 
