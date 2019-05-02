@@ -40,7 +40,7 @@ class Payu(BasePaymentProcessor):
     TRANSACTION_ERROR = '104'
     PAYMENT_FORM_SIGNATURE = 1
     CONFIRMATION_SIGNATURE = 2
-    DESCRIPTION_PREFIX = u'Inscripción en'
+    DESCRIPTION_PREFIX = u'Inscripción'
     DESCRIPTION_SEPARATOR = ' | '
     MAX_SPLITS = 1
 
@@ -104,14 +104,18 @@ class Payu(BasePaymentProcessor):
         if description:
             parameters['description'] = description
 
-        dni = self.get_dni(request, basket)
+        dni, name = self.get_user_details(request, basket)
         if dni:
             parameters['payerDocument'] = dni
+
+        if name:
+            # passing the same name for buyer and payer as requested by campus romero
+            parameters['payerFullName'] = name
+            parameters['buyerFullName'] = name
 
         if self.test:
             parameters['test'] = self.test
 
-        parameters['referenceCode'] = basket.order_number
         parameters['signature'] = self._generate_signature(parameters, self.PAYMENT_FORM_SIGNATURE)
 
         return parameters
@@ -134,27 +138,27 @@ class Payu(BasePaymentProcessor):
                 # returning SAC01+2019, for the example given above.
                 # This must be done for every course in the basket.
                 splitted_course_id = line.product.course_id.split('+', self.MAX_SPLITS)
-                descriptions.append(splitted_course_id[1])
+                descriptions.append(splitted_course_id[1].replace('+', '/'))
 
         return self.DESCRIPTION_SEPARATOR.join(descriptions)
 
     @staticmethod
-    def get_dni(request, basket):
+    def get_user_details(request, basket):
         """
-        Returns the buyer user (edxapp user) dni
+        Returns the buyer user (edxapp user) details
         Returns None if an exception occurs
         """
         try:
             buyer_user = User.objects.get(email=basket.owner.email)
             response = buyer_user.account_details(request)
             dni = next(field for field in response['extended_profile'] if field["field_name"] == "dni")
-            return dni['field_value']
+            return dni['field_value'], response['name']
         except (ConnectionError, SlumberBaseException, Timeout, StopIteration, KeyError, ObjectDoesNotExist):
             logger.exception(
-                'Failed to retrieve DNI for [%s]',
+                'Failed to retrieve user details for [%s]',
                 basket.owner.email
             )
-            return None
+            return None, None
 
     def handle_processor_response(self, response, basket=None):
         """
