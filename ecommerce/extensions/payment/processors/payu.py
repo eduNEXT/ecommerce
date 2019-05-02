@@ -40,7 +40,7 @@ class Payu(BasePaymentProcessor):
     TRANSACTION_ERROR = '104'
     PAYMENT_FORM_SIGNATURE = 1
     CONFIRMATION_SIGNATURE = 2
-    DESCRIPTION_PREFIX = u'Inscripción en'
+    DESCRIPTION_PREFIX = u'Inscripción'
     DESCRIPTION_SEPARATOR = ' | '
     MAX_SPLITS = 1
 
@@ -134,7 +134,7 @@ class Payu(BasePaymentProcessor):
                 # returning SAC01+2019, for the example given above.
                 # This must be done for every course in the basket.
                 splitted_course_id = line.product.course_id.split('+', self.MAX_SPLITS)
-                descriptions.append(splitted_course_id[1])
+                descriptions.append(splitted_course_id[1].replace('+', '/'))
 
         return self.DESCRIPTION_SEPARATOR.join(descriptions)
 
