@@ -160,8 +160,8 @@ class PayUPaymentResponseView(EdxOrderPlacementMixin, View):
             )
 
             return HttpResponse()
-        except:  # pylint: disable=bare-except
-            logger.exception(self.order_placement_failure_msg, basket.id)
+        except Exception as e:  # pylint: disable=bare-except
+            logger.exception(self.order_placement_failure_msg, basket.id, str(e))
             return HttpResponse(status=500)
 
     def get(self, request, *args, **kwargs):
@@ -195,6 +195,6 @@ class PayUPaymentResponseView(EdxOrderPlacementMixin, View):
 
         try:
             return redirect(receipt_url)
-        except:  # pylint: disable=bare-except
-            logger.exception(self.order_placement_failure_msg, basket.id)
+        except Exception as e:  # pylint: disable=bare-except
+            logger.exception(self.order_placement_failure_msg, basket.id, str(e))
             return redirect(receipt_url)
