@@ -118,3 +118,6 @@ ENTERPRISE_CUSTOMERS_EXCLUDED_FROM_CATALOG = config_from_yaml.get('ENTERPRISE_CU
 CORS_ALLOW_HEADERS = corsheaders_default_headers + (
     'use-jwt-cookie',
 )
+
+# Edunext setting: url path to the campus romero open edx extensions plugin
+OPENEDX_EXTENSIONS_API_URL = environ.get('OPENEDX_EXTENSIONS_API_URL', OPENEDX_EXTENSIONS_API_URL)
