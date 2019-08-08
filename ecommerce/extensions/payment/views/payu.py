@@ -132,7 +132,7 @@ class PayUPaymentResponseView(EdxOrderPlacementMixin, View):
                     return HttpResponse()
         except:  # pylint: disable=bare-except
             logger.exception('Attempts to handle payment for basket [%d] failed.', basket.id)
-            return HttpResponse(status=500)
+            return HttpResponse(status=200)
 
         try:
             # Note (CCB): In the future, if we do end up shipping physical products, we will need to
@@ -162,7 +162,7 @@ class PayUPaymentResponseView(EdxOrderPlacementMixin, View):
             return HttpResponse()
         except Exception as e:  # pylint: disable=bare-except
             logger.exception(self.order_placement_failure_msg, basket.id, str(e))
-            return HttpResponse(status=500)
+            return HttpResponse(status=200)
 
     def get(self, request, *args, **kwargs):
         # pylint: disable=unused-argument
