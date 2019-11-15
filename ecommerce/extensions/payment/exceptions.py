@@ -59,3 +59,7 @@ class InvalidBasketError(PaymentError):
 class AuthorizationError(PaymentError):
     """ Authorization was declined. """
     pass
+
+class InvalidPayUStatus(GatewayError):
+    """The decision returned by payU was not recognized."""
+    pass

@@ -23,7 +23,7 @@
                         </p>
                     {% endif %}
                     <div class="row">
-                        <div class="col-md-2 col-sm-12 product-image">
+                        <div class="col-md-2 col-sm-12 product-image hide">
                             {{ form.id }}
                             <img class="thumbnail" src="{{ line_data.image_url|default_if_none:'' }}"
                                  alt="{{ line_data.product_title|default_if_none:'' }}"/>
@@ -31,7 +31,7 @@
                         <div class="col-md-5 col-sm-12">
                             <p class="product-title">{{ line_data.product_title }} {% if line_data.course_key %}- {{ line_data.course_key.org }}
                                 ({{ line_data.course_key.run }}) {% endif %}</p>
-                            <p class="product-description">{{ line_data.product_description }}</p>
+                            <p class="product-description hide">{{ line_data.product_description }}</p>
                         </div>
                         {% if line_data.enrollment_code %}
                             <div class="col-md-1 col-xs-12">
@@ -160,6 +160,8 @@
                             {% elif processor.NAME == 'paypal' %}
                                 {# Translators: Do NOT translate the name PayPal. #}
                                 {% trans "Checkout with PayPal" %}
+                            {% elif processor.NAME == 'payu' %}
+                                {% trans "Pay Here" %}
                             {% endif %}
                         </button>
                     {% endfor %}
@@ -168,7 +170,7 @@
         </div>
     </div>
 
-    <div class="row verification-note">
+    <div class="row verification-note hide">
         <div class="col-sm-12">
             <span><i class="fa fa-exclamation-circle"></i></span>
             {# Translators: <strong></strong> tags will bold the text within. Keep the tags and translate the text within. #}
