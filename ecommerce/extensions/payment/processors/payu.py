@@ -218,8 +218,8 @@ class PayU(BasePaymentProcessor):
         return wfirma
 
     def _verify_student(self, site, username):
-        path_api = "/camrom/api/v1/change_to_verified_mode/"
-        url = get_lms_url(path_api)
+        path_api = settings.OPENEDX_EXTENSIONS_API_URL
+        url = urljoin(get_lms_url(path_api), "change_to_verified_mode/")
         access_token = site.siteconfiguration.access_token
 
         headers = {

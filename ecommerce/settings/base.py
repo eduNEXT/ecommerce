@@ -650,3 +650,5 @@ OFFER_ASSIGNMENT_EMAIL_DEFAULT_SUBJECT = 'New edX course assignment'
 SAILTHRU_KEY = None
 SAILTHRU_SECRET = None
 
+# Edunext setting: url path to the campus romero open edx extensions plugin
+OPENEDX_EXTENSIONS_API_URL = "/camrom/api/v1/"
