@@ -1,18 +1,21 @@
 # -*- coding: utf-8 -*-
 """ PayU payment processing. """
 import logging
-
+import json
+import requests
 from decimal import Decimal
 from hashlib import md5
+from urlparse import urljoin
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.conf import settings
 from oscar.apps.payment.exceptions import GatewayError, TransactionDeclined
 from oscar.core.loading import get_model
 from requests.exceptions import ConnectionError, Timeout
 from slumber.exceptions import SlumberBaseException
 
 from ecommerce.core.models import User
-from ecommerce.core.url_utils import get_ecommerce_url
+from ecommerce.core.url_utils import get_ecommerce_url, get_lms_url
 from ecommerce.extensions.payment.exceptions import InvalidSignatureError
 from ecommerce.extensions.payment.processors import BasePaymentProcessor, HandledProcessorResponse
 
@@ -84,6 +87,7 @@ class Payu(BasePaymentProcessor):
         Returns:
             dict: PayU-specific parameters required to complete a transaction, including a signature.
         """
+        self._verify_student(request.site, request.user)
         parameters = {
             'payment_page_url': self.payment_page_url,
             'merchantId': self.merchant_id,
@@ -278,6 +282,36 @@ class Payu(BasePaymentProcessor):
         )
 
         raise NotImplementedError
+
+    def _verify_student(self, site, username):
+        """
+        Verify the student identity.
+
+        This method is traversal to the platform, it updates the user verification data
+        and it's not dependant of the course that is being purchased.
+
+        This is a bad practice, since it is forcefully verifying the user and it does so
+        in a unrelated point of the code.
+
+        """
+        path_api = settings.OPENEDX_EXTENSIONS_API_URL
+        url = urljoin(get_lms_url(path_api), "change_to_verified_mode/")
+        access_token = site.siteconfiguration.access_token
+
+        headers = {
+            "authorization": "JWT {}".format(access_token),
+            "Content-Type": "application/json"
+        }
+
+        data = json.dumps({
+            "username": username.username
+        })
+
+        try:
+            response = requests.request("POST", url, data=data, headers=headers)
+            response.raise_for_status()
+        except requests.exceptions.RequestException as err:
+            raise err
 
 
 class InvalidPayUDecision(GatewayError):

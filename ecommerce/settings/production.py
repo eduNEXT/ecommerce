@@ -84,3 +84,6 @@ for __, configs in PAYMENT_PROCESSOR_CONFIG.iteritems():
 # END PAYMENT PROCESSOR OVERRIDES
 
 ENTERPRISE_API_URL = urljoin(ENTERPRISE_SERVICE_URL, 'api/v1/')
+
+# Edunext setting: url path to the campus romero open edx extensions plugin
+OPENEDX_EXTENSIONS_API_URL = environ.get('OPENEDX_EXTENSIONS_API_URL', OPENEDX_EXTENSIONS_API_URL)
