@@ -43,6 +43,20 @@ CORS_ALLOW_CREDENTIALS = True
 # PAYMENT PROCESSING
 PAYMENT_PROCESSOR_CONFIG = {
     'edx': {
+        'payu': {
+            'account_id': '512323',
+            'api_key': '4Vj8eK4rloUd272L48hsrarnUA',
+            'cancel_url': 'http://edx.devstack.lms/commerce/checkout/cancel/',
+            'error_url': 'http://edx.devstack.lms/commerce/checkout/error/',
+            'merchant_id': '508029',
+            'payment_page_url': 'https://sandbox.checkout.payulatam.com/ppp-web-gateway-payu/',
+            'receipt_url': 'http://edx.devstack.lms/commerce/checkout/receipt/',
+            'test': 1,
+            'tax': '0',
+            'tax_return_base': '0',
+            'receipt_path': PAYMENT_PROCESSOR_RECEIPT_PATH,
+            'cancel_checkout_path': PAYMENT_PROCESSOR_CANCEL_PATH,
+        },
         'cybersource': {
             'merchant_id': 'edx_org',
             'transaction_key': '2iJRV1OoAiMxSsFRQfkmdeqYKzwV76R5AY7vs/zKCQf2Dy0gYsno6sEizavo9rz29kcq/s2F+nGP0DrNNwDXyAxI3FW77HY+0jAssnXwd8cW1Pt5aEBcQvnOQ4i9nbN2mr1XJ+MthRbNodz1FgLFuTiZenpjFq1DFmQwFi2u7V1ItQrmG19kvnpk1++mZ8Dx7s4GdN8jxdvesNGoKo7E05X6LZTHdUCP3rfq/1Nn4RDoPvxtv9UMe77yxtUF8LVJ8clAl4VyW+6uhmgfIWninfQiESR0HQ++cNJS1EXHjwNyuDEdEALKxAwgUu4DQpFbTD1bcRRm4VrnDr6MsA8NaA==',
