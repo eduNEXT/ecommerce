@@ -317,7 +317,8 @@ class BasketSummaryView(BasketView):
             'partner_sku': partner_sku,
             'show_voucher_form': show_voucher_form,
             'switch_link_text': switch_link_text,
-            'is_enrollment_code_purchase': is_enrollment_code_purchase
+            'is_enrollment_code_purchase': is_enrollment_code_purchase,
+            'payment_support_email': self.request.site.siteconfiguration.payment_support_email
         }
 
         return context_updates, lines_data
