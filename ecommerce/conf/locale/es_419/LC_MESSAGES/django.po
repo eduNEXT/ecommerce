@@ -2149,9 +2149,9 @@ msgstr "Su cesto está vacío"
 msgid ""
 "\n"
 "                                If you attempted to make a purchase, you have not been charged. Return to your %(dashboard_link_start)sdashboard%(link_end)s to try\n"
-"                                again, or %(support_link_start)scontact %(platform_name)s Support%(link_end)s.\n"
+"                                again, or %(start_link)scontact %(payment_support_email)s%(link_end)s.\n"
 "                            "
-msgstr "\n                                Si intentó realizar una compra , no ha sido cargado ningún cobro. Regresa a tu %(dashboard_link_start)spanel de control%(link_end)s para intentar\n                                otra vez, o %(support_link_start)scontacte a %(platform_name)s Support%(link_end)s.\n                            "
+msgstr "\n                                Si intentó realizar una compra , no ha sido cargado ningún cobro. Regresa a tu %(dashboard_link_start)spanel de control%(link_end)s para intentar\n                                otra vez, o %(start_link)scontáctenos a %(payment_support_email)s%(link_end)s.\n                            "
 
 #: ecommerce/templates/oscar/basket/messages/new_total.html:6
 msgid "Your basket is now empty"
