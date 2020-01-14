@@ -137,13 +137,13 @@ class Payu(BasePaymentProcessor):
         if basket.num_lines == 1 and basket.lines.first().product.is_enrollment_code_product:
             basket.clear_vouchers()
         elif basket.contains_a_voucher:
-            voucher = basket.vouchers.first()
-            basket.clear_vouchers()
-            is_valid, message = validate_voucher(voucher, request.user, basket, request.site)
-            if is_valid:
-                apply_voucher_on_basket_and_check_discount(voucher, request, basket)
-            else:
-                logger.info(message)
+            for voucher in basket.vouchers.all():
+                basket.vouchers.remove(voucher)
+                is_valid, message = validate_voucher(voucher, request.user, basket, request.site)
+                if is_valid:
+                    apply_voucher_on_basket_and_check_discount(voucher, request, basket)
+                else:
+                    logger.info(message)
 
     def get_description(self, basket):
         """
