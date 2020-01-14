@@ -16,6 +16,7 @@ from slumber.exceptions import SlumberBaseException
 
 from ecommerce.core.models import User
 from ecommerce.core.url_utils import get_ecommerce_url, get_lms_url
+from ecommerce.extensions.basket.utils import apply_voucher_on_basket_and_check_discount, validate_voucher
 from ecommerce.extensions.payment.exceptions import InvalidSignatureError
 from ecommerce.extensions.payment.processors import BasePaymentProcessor, HandledProcessorResponse
 
@@ -87,6 +88,11 @@ class Payu(BasePaymentProcessor):
         Returns:
             dict: PayU-specific parameters required to complete a transaction, including a signature.
         """
+
+        # Forcing vouchers cleaning.
+        # This is to prevent users to submit a basket with not valid vouchers
+        self.apply_basket_vouchers_cleaning(basket, request)
+
         self._verify_student(request.site, request.user)
         parameters = {
             'payment_page_url': self.payment_page_url,
@@ -123,6 +129,21 @@ class Payu(BasePaymentProcessor):
         parameters['signature'] = self._generate_signature(parameters, self.PAYMENT_FORM_SIGNATURE)
 
         return parameters
+
+    def apply_basket_vouchers_cleaning(self, basket, request):
+        """
+        Apply voucher basket cleaning to prevent submitting a basket with invalid vouchers
+        """
+        if basket.num_lines == 1 and basket.lines.first().product.is_enrollment_code_product:
+            basket.clear_vouchers()
+        elif basket.contains_a_voucher:
+            for voucher in basket.vouchers.all():
+                basket.vouchers.remove(voucher)
+                is_valid, message = validate_voucher(voucher, request.user, basket, request.site)
+                if is_valid:
+                    apply_voucher_on_basket_and_check_discount(voucher, request, basket)
+                else:
+                    logger.info(message)
 
     def get_description(self, basket):
         """
