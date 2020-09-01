@@ -85,6 +85,23 @@ class Basket(AbstractBasket):
             track_segment_event(self.site, self.owner, 'Product Added', properties)
         return line, created
 
+    def get_allowed_bin(self):
+        """
+        Iterate over the products of the basket and concatenate all
+        the allowed_bin attributes that are present in them.
+        """
+        allowed_bins_set = set()
+        for line in self.all_lines():
+            allowed_bin_attr = line.product.attributes.filter(name='allowed_bin').first()
+            if allowed_bin_attr:
+                allowed_bins  = set(
+                    line.product.attribute_values.get(
+                        attribute=allowed_bin_attr
+                        ).value.split(','))
+                allowed_bins_set = allowed_bins_set | allowed_bins
+
+        return ",".join(allowed_bins_set)
+
     def clear_vouchers(self):
         """Remove all vouchers applied to the basket."""
         for v in self.vouchers.all():

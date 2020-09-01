@@ -23,7 +23,8 @@ define([
                 'course_key',
                 'id_verification_required',
                 'credit_provider',
-                'credit_hours'
+                'credit_hours',
+                'allowed_bin'
             ],
 
             parse: function(response) {

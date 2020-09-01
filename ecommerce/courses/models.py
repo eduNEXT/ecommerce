@@ -142,7 +142,8 @@ class Course(models.Model):
             expires=None,
             credit_hours=None,
             remove_stale_modes=True,
-            create_enrollment_code=False
+            create_enrollment_code=False,
+            allowed_bin=None
     ):
         """
         Creates course seat products.
@@ -236,6 +237,9 @@ class Course(models.Model):
 
         if credit_hours:
             seat.attr.credit_hours = credit_hours
+
+        if allowed_bin is not None:
+            seat.attr.allowed_bin = allowed_bin
 
         seat.attr.save()
 
