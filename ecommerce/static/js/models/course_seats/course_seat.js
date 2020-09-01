@@ -16,7 +16,8 @@ define([
                 price: 0,
                 credit_provider: null,
                 credit_hours: null,
-                product_class: 'Seat'
+                product_class: 'Seat',
+                allowed_bin: ''
             },
 
             course: null,
@@ -57,6 +58,11 @@ define([
                 title: {
                     required: false,
                     pattern: 'productName'
+                },
+                allowed_bin: {
+                    required: false,
+                    pattern: /^[0-9]{6}(,[0-9]{6})*$/,
+                    msg: gettext("Allowed BIN input should be a comma separated integers list. Each BIN number should have 6 digits.")
                 }
             },
 

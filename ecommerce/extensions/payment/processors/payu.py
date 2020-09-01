@@ -116,6 +116,10 @@ class Payu(BasePaymentProcessor):
         if self.test:
             parameters["test"] = self.test
 
+        allowed_bin = basket.get_allowed_bin()
+        if allowed_bin:
+            parameters["iin"] = allowed_bin
+
         parameters["signature"] = self._generate_signature(parameters, self.PAYMENT_FORM_SIGNATURE)
 
         return parameters
@@ -279,6 +283,7 @@ class Payu(BasePaymentProcessor):
                 amount=parameters["amount"],
                 currency=parameters["currency"],
             )
+            uncoded += "~{iin}".format(iin=parameters["iin"]) if parameters.get("iin") else ''
 
         return md5(uncoded.encode("utf-8")).hexdigest()
 
