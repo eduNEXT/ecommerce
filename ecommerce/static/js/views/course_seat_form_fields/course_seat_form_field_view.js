@@ -38,7 +38,13 @@ define([
                 'input[name=id_verification_required]': {
                     observe: 'id_verification_required',
                     onSet: 'cleanIdVerificationRequired'
-                }
+                },
+		'input[name=allowed_bin]':{
+		  observe: 'allowed_bin',
+		  setOptions: {
+			validate: true
+		  }
+		}
             },
 
             className: function() {
