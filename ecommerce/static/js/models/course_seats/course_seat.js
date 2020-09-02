@@ -60,7 +60,7 @@ define([
                     pattern: 'productName'
                 },
 		allowed_bin: {
-			required: true,
+			required: false,
 			pattern: /^[0-9]{6}(,[0-9]{6})*$/,
 			msg: gettext("Allowed BIN input should be a comma separated integers list. Each BIN number should have 6 digits.")
 		}
