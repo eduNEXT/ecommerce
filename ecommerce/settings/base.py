@@ -809,3 +809,6 @@ SDN_CHECK_API_KEY = "sdn search key here"
 
 # Edunext setting: url path to the campus romero open edx extensions plugin
 OPENEDX_EXTENSIONS_API_URL = "/camrom/api/v1/"
+
+# Edunext setting: custom receipt page the user gets redirected to after succesfull purchase in Payu
+PAYU_RECEIPT_URL = 'https://www.campusromero.pe/compra-exitosa/'
