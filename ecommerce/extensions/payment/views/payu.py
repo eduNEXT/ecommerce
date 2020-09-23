@@ -7,6 +7,7 @@ from django.db import transaction
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ObjectDoesNotExist
+from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.shortcuts import redirect
 from django.http import HttpResponse
@@ -190,7 +191,8 @@ class PayUPaymentResponseView(EdxOrderPlacementMixin, View):
 
         receipt_url = get_receipt_page_url(
             order_number=basket.order_number,
-            site_configuration=basket.site.siteconfiguration
+            site_configuration=basket.site.siteconfiguration,
+            override_url = settings.PAYU_RECEIPT_URL
         )
 
         try:
