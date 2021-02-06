@@ -165,6 +165,8 @@
                             {% elif processor.NAME == 'paypal' %}
                                 {# Translators: Do NOT translate the name PayPal. #}
                                 {% trans "Checkout with PayPal" as tmsg %}{{ tmsg | force_escape }}
+                            {% else %}
+                                {% trans "Checkout" as tmsg %}{{ tmsg | force_escape }}
                             {% endif %}
                         </button>
                     {% endfor %}
