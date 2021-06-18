@@ -162,6 +162,9 @@
                                 id="{{ processor.NAME|lower }}">
                             {% if processor.TITLE %}
                                 {% blocktrans with title=processor.TITLE %}Checkout with {{ title }}{% endblocktrans %}
+
+                            {% elif process.CHECKOUT_TEXT  %}
+                                {{ processor.CHECKOUT_TEXT | force_escape }}
                             {% else %}
                                 {% trans "Checkout" as tmsg %}{{ tmsg | force_escape }}
                             {% endif %}
