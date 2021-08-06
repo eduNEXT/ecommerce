@@ -10,6 +10,7 @@ from decimal import Decimal
 import ddt
 import httpretty
 import mock
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import override_settings
 from django.urls import reverse
@@ -90,7 +91,7 @@ class BasketCreateViewTests(BasketCreationMixin, ThrottlingMixin, TransactionTes
             stockrecords__price_excl_tax=Decimal('0.00'),
             stockrecords__partner__short_code='otto',
         )
-        factories.ProductFactory(
+        self.alternate_paid_product = factories.ProductFactory(
             structure='child',
             parent=self.base_product,
             title='LP 570-4 Superleggera',
@@ -422,6 +423,19 @@ class BasketCalculateViewTests(ProgramTestMixin, ThrottlingMixin, TestCase):
         self.client.logout()
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 401)
+
+    @override_settings(TAX_RATE=0.1)
+    def test_basket_calculate_with_tax_different_than_zero(self):
+        """ Verify that total value(including tax) uses the tax rate defined on settings(TAX_RATE) """
+        expected = {
+            'total_incl_tax_excl_discounts': Decimal("32.97"),
+            'total_incl_tax': Decimal("32.97"),
+            'currency': 'GBP'
+        }
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, expected)
 
     def test_basket_calculate_no_offers(self):
         """ Verify a successful basket calculation with no offers"""

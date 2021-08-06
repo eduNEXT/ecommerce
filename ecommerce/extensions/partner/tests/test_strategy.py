@@ -4,6 +4,9 @@ import datetime
 
 import ddt
 import pytz
+from decimal import Decimal
+
+from django.test import override_settings
 from django.test import RequestFactory
 from oscar.apps.partner import availability
 
@@ -66,6 +69,11 @@ class DefaultStrategyTests(DiscoveryTestMixin, TestCase):
         stock_record = product.stockrecords.first()
         actual = strategy.availability_policy(product, stock_record)
         self.assertIsInstance(actual, available)
+
+    @override_settings(TAX_RATE="0.3")
+    def test_get_rate(self):
+        strategy = DefaultStrategy()
+        self.assertEqual(strategy.get_rate(None, None), Decimal("0.3"))
 
 
 class SelectorTests(TestCase):
