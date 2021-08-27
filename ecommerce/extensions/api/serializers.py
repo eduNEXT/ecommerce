@@ -197,7 +197,7 @@ class ProductPaymentInfoMixin(serializers.ModelSerializer):
     def get_price(self, product):
         info = self._get_info(product)
         if info.availability.is_available_to_buy:
-            return serializers.DecimalField(max_digits=10, decimal_places=2).to_representation(info.price.excl_tax)
+            return serializers.DecimalField(max_digits=10, decimal_places=2).to_representation(info.price.incl_tax)
         return None
 
     def _get_info(self, product):
