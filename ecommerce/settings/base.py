@@ -806,3 +806,6 @@ HUBSPOT_SALES_LEAD_FORM_GUID = "SET-ME-PLEASE"
 # To check government purchase restriction lists
 SDN_CHECK_API_URL ="https://api.trade.gov/gateway/v1/consolidated_screening_list/search"
 SDN_CHECK_API_KEY = "sdn search key here"
+
+# Edunext setting: url path to the campus romero open edx extensions plugin
+OPENEDX_EXTENSIONS_API_URL = "/camrom/api/v1/"
