@@ -253,7 +253,7 @@ class BasketLogicMixin:
             Also returns course information found from catalog.
         """
         course_data = {
-            'product_title': None,
+            'product_title': product.title,
             'course_key': None,
             'image_url': None,
             'product_description': None,
