@@ -13,4 +13,5 @@ def core(request):
         'platform_name': site.name,
         'support_url': site_configuration.payment_support_url,
         'optimizely_snippet_src': site_configuration.optimizely_snippet_src,
+        'payment_support_email': site_configuration.payment_support_email,
     }
