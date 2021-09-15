@@ -55,4 +55,14 @@
             </label>
         </div>
     </div>
+   <div class="allowed_bin">
+      <div class="form-group">
+         <label for="allowed_bin"><%= gettext('Allowed BIN') %></label>
+            <div class="input-group">
+                    <input type="text" class="form-control" name="allowed_bin" id="allowed_bin" placeholder="e.g: 4111111,123456" value="<% allowed_bin %>" >
+            </div>
+            <!-- NOTE: This help-block is here for validation messages. -->
+            <span class="help-block"></span>
+      </div>
+   </div>
 </div>
