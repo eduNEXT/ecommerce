@@ -45,6 +45,11 @@ def calculate_vat_from_unit_price(unit_price_excl_tax, unit_price_incl_tax):
     Calculates the VAT(Tax Rate) as a percentage(multiplied by 100.0) from order line unit price including tax and
     excluding tax, rounded up to 2 decimal digits
     """
+    # If unit price equals zero, then the tax rate is also zero. 
+    # This prevents a division by zero when calculating tax from the invoice prices
+    # where a 100% discount coupon was applied. 
+    if not unit_price_excl_tax:
+        return Decimal(0)
     calculated_tax = Decimal(unit_price_incl_tax) - Decimal(unit_price_excl_tax)
     calculated_tax_as_percentage = (calculated_tax / Decimal(unit_price_excl_tax)) * Decimal(100.0)
     return round(calculated_tax_as_percentage, 2)
