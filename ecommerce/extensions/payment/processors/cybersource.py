@@ -155,7 +155,7 @@ class CybersourceREST(ApplePayMixin, BaseClientSidePaymentProcessor):
         self.flex_shared_secret_key_id = configuration.get('flex_shared_secret_key_id')
         self.flex_shared_secret_key = configuration.get('flex_shared_secret_key')
         if self.site.siteconfiguration.payment_microfrontend_url:
-            self.flex_target_origin = self.site.siteconfiguration.payment_microfrontend_url.rstrip('/')
+            self.flex_target_origin = configuration.get('payment_mfe_host') or self.site.siteconfiguration.payment_microfrontend_url.rstrip('/')
         else:
             self.flex_target_origin = None
 
