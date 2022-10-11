@@ -55,3 +55,5 @@ unicodecsv
 xss-utils
 zeep
 
+# Hiperpay processor
+git+https://github.com/nelc/ecommerce-hyperpay.git@a6c8e3d3f886cd23a5ff75196acb2be912becc15
