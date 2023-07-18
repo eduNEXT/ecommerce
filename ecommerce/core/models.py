@@ -518,10 +518,11 @@ class User(AbstractUser):
     # This preserves the 30 character limit on last_name, avoiding a large migration
     # on the ecommerce_user table that would otherwise have come with Django 2.
     # See https://docs.djangoproject.com/en/3.0/releases/2.0/#abstractuser-last-name-max-length-increased-to-150
-    last_name = models.CharField(_('last name'), max_length=30, blank=True)
+    #Arabic lastname and firstname needs more than 30 chars
+    last_name = models.CharField(_('last name'), max_length=255, blank=True)
     # Similarly, this avoids a large migration which otherwise would come with Django 3.2
     # See, https://docs.djangoproject.com/en/3.2/releases/3.1/#abstractuser-first-name-max-length-increased-to-150
-    first_name = models.CharField(_('first name'), max_length=30, blank=True)
+    first_name = models.CharField(_('first name'), max_length=255, blank=True)
     full_name = models.CharField(_('Full Name'), max_length=255, blank=True, null=True)
     tracking_context = JSONField(blank=True, null=True)
     email = models.EmailField(max_length=254, verbose_name='email address', blank=True, db_index=True)
