@@ -163,7 +163,7 @@
                             {% if processor.TITLE %}
                                 {% blocktrans with title=processor.TITLE %}Checkout with {{ title }}{% endblocktrans %}
 
-                            {% elif process.CHECKOUT_TEXT  %}
+                            {% elif processor.CHECKOUT_TEXT  %}
                                 {{ processor.CHECKOUT_TEXT | force_escape }}
                             {% else %}
                                 {% trans "Checkout" as tmsg %}{{ tmsg | force_escape }}
